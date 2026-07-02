@@ -1,0 +1,198 @@
+(ns engine.test-tick
+  "Engine tick-loop tests — ALL LLM fns stubbed, NO network.
+  Side-effecting/interop calls are bound in let before assertion
+  (basilisp.test/is may double-evaluate forms)."
+  (:import json tempfile threading)
+  (:require [basilisp.string :as str]
+            [basilisp.test :refer [deftest is testing]]
+            [agentworld.engine.core :as engine]
+            [agentworld.persona.core :as persona]
+            [agentworld.recorder.core :as recorder]
+            [agentworld.world.grid :as grid]))
+
+;; ---------------------------------------------------------------------------
+;; Stubs
+;; ---------------------------------------------------------------------------
+
+(defn stub-decide
+  "Deterministic decision stub cycling stay/wander."
+  [_p _perception]
+  {:action "stay" :reason "stub" :route "idle"})
+
+(defn seek-decide
+  "Seek the first nearby agent (keeps a pair glued together)."
+  [_p perception]
+  (if-let [target (first (:nearby-agents perception))]
+    {:action "seek" :target target :reason "stub seek" :route "set-target"}
+    {:action "stay" :reason "stub stay" :route "idle"}))
+
+(defn stub-converse [pa pb _context]
+  {:transcript [{:speaker (:name pa) :text "Hello there."}
+                {:speaker (:name pb) :text "Well met."}]
+   :summary (str (:name pa) " greeted " (:name pb) ".")})
+
+(defn stub-chronicle [events _prior]
+  (str "Chronicle stub over " (count events) " events."))
+
+(def stub-fns
+  {:decide-fn stub-decide
+   :converse-fn stub-converse
+   :chronicle-fn stub-chronicle})
+
+;; isolde + otto both spawn at the dock — a guaranteed proximity pair.
+(def dock-pair
+  (filterv #(contains? #{:isolde :otto} (:id %)) persona/all-personas))
+
+(defn run-ticks!
+  "tick! + await-quiescent! n times (the headless discipline)."
+  [sim n]
+  (dotimes [_ n]
+    (engine/tick! sim)
+    (engine/await-quiescent! sim)))
+
+;; ---------------------------------------------------------------------------
+;; N ticks -> valid state
+;; ---------------------------------------------------------------------------
+
+(deftest ticks-produce-valid-state
+  (let [sim (engine/make-sim (merge stub-fns {:seed 7}))
+        _ (run-ticks! sim 50)
+        _ (engine/finish! sim)
+        snap (engine/snapshot sim)
+        world @(:world sim)]
+    (is (= 50 (:tick snap)))
+    (is (= 6 (count (:agents snap))))
+    (testing "every agent sits on a walkable tile"
+      (doseq [[_ a] (:agents snap)]
+        (is (grid/walkable? world (:pos a)))))
+    (testing "snapshot carries spend + conversation slots"
+      (is (contains? snap :spend))
+      (is (contains? snap :active-conversation))
+      (is (contains? snap :chronicle)))))
+
+;; ---------------------------------------------------------------------------
+;; Conversations trigger on proximity; cooldowns respected
+;; ---------------------------------------------------------------------------
+
+(deftest proximity-triggers-conversation-once-per-cooldown
+  (let [conv-calls (atom 0)
+        counting-converse (fn [pa pb ctx]
+                            (swap! conv-calls inc)
+                            (stub-converse pa pb ctx))
+        sim (engine/make-sim {:personas dock-pair
+                              :seed 3
+                              :decide-fn seek-decide
+                              :converse-fn counting-converse
+                              :chronicle-fn stub-chronicle
+                              :conversation-cooldown 90})
+        _ (run-ticks! sim 60)
+        _ (engine/finish! sim)
+        calls @conv-calls
+        store (:memory sim)]
+    (testing "adjacent spawn pair converses exactly once inside the cooldown window"
+      (is (= 1 calls)))
+    (testing "both agents remember the conversation"
+      (let [mem-a (get-in @store [:isolde :last-conversation])
+            mem-b (get-in @store [:otto :last-conversation])]
+        (is (string? mem-a))
+        (is (string? mem-b))
+        (is (str/includes? mem-a "greeted"))))
+    (testing "the pair cooldown is registered"
+      (is (contains? @(:cooldowns sim) [:isolde :otto])))))
+
+;; ---------------------------------------------------------------------------
+;; Decision-in-flight prevents double-enqueue
+;; ---------------------------------------------------------------------------
+
+(deftest decision-in-flight-prevents-double-enqueue
+  (let [gate (threading/Event)
+        calls (atom 0)
+        blocking-decide (fn [_p _per]
+                          (swap! calls inc)
+                          (.wait gate 30)
+                          {:action "stay" :reason "blocked stub" :route "idle"})
+        sim (engine/make-sim {:personas dock-pair
+                              :seed 1
+                              :decision-cadence 5
+                              :proximity-r 0   ; no conversations in this test
+                              :decide-fn blocking-decide
+                              :converse-fn stub-converse
+                              :chronicle-fn stub-chronicle})]
+    ;; 14 ticks, never awaiting: slots recur at t=5,10 (agent 0) and
+    ;; t=1,6,11 (agent 1) but in-flight decisions must not re-enqueue.
+    (dotimes [_ 14] (engine/tick! sim))
+    (let [blocked-calls @calls]
+      (is (= 2 blocked-calls) "one in-flight decision per agent, never re-enqueued"))
+    (.set gate)
+    (engine/await-quiescent! sim)
+    (engine/finish! sim)
+    (let [in-flight @(:in-flight sim)]
+      (is (= #{} (:decisions in-flight))))))
+
+;; ---------------------------------------------------------------------------
+;; Recorder integration: well-formed JSONL, keyframe cadence
+;; ---------------------------------------------------------------------------
+
+(deftest recorder-writes-wellformed-jsonl-with-keyframes
+  (let [path (str (tempfile/mkdtemp) "/replay.jsonl")
+        rec (recorder/open-recorder path)
+        sim (engine/make-sim (merge stub-fns {:seed 7
+                                              :recorder rec
+                                              :keyframe-every 10}))
+        _ (run-ticks! sim 30)
+        _ (engine/finish! sim)
+        _ (recorder/close! rec)
+        raw-lines (->> (str/split-lines (slurp path)) (remove empty?) vec)
+        parsed (mapv #(json/loads %) raw-lines)   ; throws on malformed JSON
+        events (vec (recorder/read-replay path))
+        keyframes (filterv #(= "tick-state" (:type %)) events)
+        types (set (map :type events))]
+    (is (pos? (count raw-lines)))
+    (is (= (count raw-lines) (count parsed)))
+    (testing "keyframes at exactly the configured cadence"
+      (is (= [10 20 30] (mapv :tick keyframes))))
+    (testing "keyframes carry the whitelisted snapshot"
+      (let [kf (first keyframes)]
+        (is (= 6 (count (:agents kf))))
+        (is (every? #(and (:name %) (:pos %)) (:agents kf)))
+        (is (contains? (:spend kf) :total-usd))))
+    (testing "the dock pair's conversation was recorded"
+      (is (contains? types "conversation"))
+      (let [conv (first (filter #(= "conversation" (:type %)) events))]
+        (is (vector? (:transcript conv)))
+        (is (string? (:summary conv)))))
+    (testing "intents + moves + spend land in the log"
+      (is (contains? types "intent"))
+      (is (contains? types "move"))
+      (is (contains? types "spend")))))
+
+;; ---------------------------------------------------------------------------
+;; Sanitizer: whitelist at the emit boundary
+;; ---------------------------------------------------------------------------
+
+(deftest sanitizer-strips-poisoned-fields
+  (let [poisoned {:type :intent :tick 3 :id :mara :name "Mara"
+                  :action "goto" :place "tavern" :reason "bread"
+                  :system-prompt "SECRET SYSTEM PROMPT"
+                  :messages [{:role "system" :content "raw payload"}]
+                  :api-key "sk-or-v1-abcdef1234567890"}
+        clean (recorder/sanitize poisoned)]
+    (is (= :intent (:type clean)))
+    (is (= "goto" (:action clean)))
+    (testing "non-whitelisted fields are structurally excluded"
+      (is (not (contains? clean :system-prompt)))
+      (is (not (contains? clean :messages)))
+      (is (not (contains? clean :api-key))))))
+
+(deftest sanitizer-redacts-key-like-strings
+  (let [clean (recorder/sanitize
+               {:type :chronicle :tick 1
+                :text "the key sk-or-v1-deadbeef42 leaked into prose"})]
+    (is (str/includes? (:text clean) "[redacted]"))
+    (is (not (str/includes? (:text clean) "sk-or-")))))
+
+(deftest sanitizer-refuses-unknown-event-types
+  (let [thrown (try (recorder/sanitize {:type :llm-request :payload "raw"})
+                    :no-throw
+                    (catch python/Exception e (:error (ex-data e))))]
+    (is (= :unknown-event-type thrown))))

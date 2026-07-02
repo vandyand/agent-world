@@ -37,6 +37,23 @@ clj-nrepl-eval -p 37888 "(require '[agentworld.inference.cost :as cost] :reload)
 dependency below it changed too. If things get weird (stale defs, deleted
 vars lingering), restart with `scripts/nrepl.sh`.
 
+## Running bases (`basilisp run -n`)
+
+`basilisp run` resolves namespaces via `sys.path`, which does not know the
+polylith brick layout. A `.pth` file in the venv's site-packages adds every
+brick src dir; regenerate it after creating a new brick:
+
+```bash
+SITE=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+{ for d in components/*/src bases/*/src; do echo "$PWD/$d"; done; } > "$SITE/agentworld-bricks.pth"
+```
+
+Then e.g.:
+
+```bash
+.venv/bin/basilisp run -n agentworld.base.headless -- --minutes 2 --out /tmp/spike.jsonl --seed 42 [--stub]
+```
+
 ## Tests and gates
 
 ```bash

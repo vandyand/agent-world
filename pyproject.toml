@@ -39,6 +39,9 @@ pythonpath = [
   "components/cognition/src",
   "components/conversation/src",
   "components/chronicle/src",
+  "components/recorder/src",
+  "components/engine/src",
+  "bases/headless/src",
 ]
 testpaths = [
   "tests",

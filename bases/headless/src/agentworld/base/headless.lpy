@@ -1,0 +1,129 @@
+(ns agentworld.base.headless
+  "Headless CLI: run the sim at max speed and write a sanitized replay.
+
+    .venv/bin/basilisp run -n agentworld.base.headless -- \\
+        --minutes 10 --out replays/demo.jsonl --seed 42 [--stub]
+
+  1 sim-minute = 60 ticks. Max speed = no wall-clock sleep; between ticks
+  the loop blocks only on actual in-flight LLM work (await-quiescent!) so
+  the canonical per-cadence call budget fully lands. --stub swaps all
+  three LLM fns for deterministic no-network stubs (no spend). Stops
+  gracefully (exit 0, recorder closed) when the cost guard trips
+  :budget-exceeded."
+  (:import argparse sys)
+  (:require [agentworld.engine.core :as engine]
+            [agentworld.inference.cost :as cost]
+            [agentworld.recorder.core :as recorder]))
+
+(def ticks-per-minute 60)
+
+;; ---------------------------------------------------------------------------
+;; Deterministic no-LLM stubs (--stub)
+;; ---------------------------------------------------------------------------
+
+(defn- make-stub-decide-fn
+  "Cycles each call through goto-place / wander / stay, deterministically."
+  []
+  (let [n (atom 0)]
+    (fn stub-decide [p perception]
+      (let [i (swap! n inc)
+            places (vec (:places perception))]
+        (case (mod i 3)
+          0 {:action "wander" :reason "stub wander" :route "idle"}
+          1 (if (seq places)
+              {:action "goto"
+               :place (name (nth places (mod i (count places))))
+               :reason "stub goto" :route "set-target"}
+              {:action "stay" :reason "stub stay" :route "idle"})
+          {:action "stay" :reason "stub stay" :route "idle"})))))
+
+(defn- stub-converse-fn [pa pb context]
+  {:transcript [{:speaker (:name pa) :text "Fine day on the tiles, neighbor."}
+                {:speaker (:name pb) :text "That it is. Mind the budget!"}]
+   :summary (str (:name pa) " and " (:name pb) " swapped stub pleasantries.")})
+
+(defn- stub-chronicle-fn [events prior]
+  (str "Stub chronicle (" (count events) " events noted)."))
+
+;; ---------------------------------------------------------------------------
+;; CLI
+;; ---------------------------------------------------------------------------
+
+(defn- parse-args [argv]
+  (let [p (argparse/ArgumentParser
+           **
+           :prog "agentworld.base.headless"
+           :description "Run the agent-world sim headless, write a replay JSONL.")]
+    (.add-argument p "--minutes" ** :type python/int :default 10
+                   :help "sim minutes to run (60 ticks each)")
+    (.add-argument p "--out" ** :default "replays/demo.jsonl"
+                   :help "replay JSONL output path")
+    (.add-argument p "--seed" ** :type python/int :default 42
+                   :help "movement RNG seed")
+    (.add-argument p "--stub" ** :action "store_true"
+                   :help "deterministic no-LLM stub fns (no network, no spend)")
+    (.parse-args p (python/list (map str (or argv []))))))
+
+(defn- usd [x]
+  (str "$" (python/format (python/float (or x 0.0)) ".4f")))
+
+(defn- print-progress [minute total-minutes sim]
+  (let [snap (engine/snapshot sim)]
+    (println (str "sim-minute " minute "/" total-minutes
+                  " — tick " (:tick snap)
+                  ", spend " (usd (get-in snap [:spend :total-usd]))
+                  " (" (get-in snap [:spend :calls]) " calls)"))))
+
+(defn- final-keyframe!
+  "Emit one last :tick-state so late-arriving results (chronicle at the
+  final tick, trailing conversations) land in the replay."
+  [rec sim]
+  (let [snap (engine/snapshot sim)]
+    (recorder/emit! rec {:type :tick-state
+                         :tick (:tick snap)
+                         :agents (:agents snap)
+                         :active-conversation (:active-conversation snap)
+                         :chronicle (:chronicle snap)
+                         :spend (:spend snap)})))
+
+(defn -main []
+  (let [args (parse-args *command-line-args*)
+        minutes (.-minutes args)
+        total-ticks (* minutes ticks-per-minute)
+        rec (recorder/open-recorder (.-out args))
+        sim (engine/make-sim
+             (merge {:seed (.-seed args) :recorder rec}
+                    (when (.-stub args)
+                      {:decide-fn (make-stub-decide-fn)
+                       :converse-fn stub-converse-fn
+                       :chronicle-fn stub-chronicle-fn})))]
+    (println (str "agent-world headless: " minutes " sim-minute(s), "
+                  total-ticks " ticks, seed " (.-seed args)
+                  (when (.-stub args) ", STUB mode (no LLM)")
+                  " -> " (.-out args)))
+    (try
+      (loop [t 1]
+        (when (and (<= t total-ticks) (not (engine/budget-exceeded? sim)))
+          (engine/tick! sim)
+          (engine/await-quiescent! sim)
+          (when (zero? (mod t ticks-per-minute))
+            (print-progress (quot t ticks-per-minute) minutes sim))
+          (recur (inc t))))
+      (engine/finish! sim)
+      (when (engine/budget-exceeded? sim)
+        (println "BUDGET CAP HIT — stopping gracefully (cost guard refused a dispatch)."))
+      (catch python/Exception e
+        (engine/finish! sim)
+        (if (= :budget-exceeded (:error (ex-data e)))
+          (println "BUDGET CAP HIT — stopping gracefully (cost guard refused a dispatch).")
+          (do (final-keyframe! rec sim)
+              (recorder/close! rec)
+              (throw e)))))
+    (final-keyframe! rec sim)
+    (recorder/close! rec)
+    (let [{:keys [total-usd calls]} (cost/spend-snapshot)]
+      (println (str "final spend: " (usd total-usd) " over " calls
+                    " LLM calls — replay: " (.-out args))))))
+
+(when (= 'agentworld.base.headless *main-ns*)
+  (-main))

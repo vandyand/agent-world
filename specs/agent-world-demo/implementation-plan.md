@@ -59,15 +59,15 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 - nREPL: budget cap: with cap stubbed to 0.1 and 0.09 already spent, `(cost/reserve! "google/gemini-2.5-flash-lite" {:prompt-chars 400000 :max-output-tokens 1000})` throws ex-info with `:budget-exceeded`; small reservation under remaining budget succeeds, and after `settle!` the reservation is released (`:reserved-usd` back to 0)
 - Shell: `.venv/bin/python scripts/compile_check.py` exits 0; `.venv/bin/python scripts/check_deps.py` exits 0; `scripts/test.sh tests/inference` passes
 
-## Phase 2: World, persona, memory (pure sim — no LLM)
+## Phase 2: World, persona, memory (pure sim — no LLM) (COMPLETE — see git log)
 
-- [ ] `components/world/src/agentworld/world/grid.lpy`: tile map (48×32) defined as data — walkable/blocked tiles, named places with rects (square, tavern, market, dock, garden, smithy); loaded from `components/world/resources/map.edn`
-- [ ] `components/world/src/agentworld/world/entity.lpy`: agent entity records `{:id :name :pos [x y] :facing :target :path :state}`; spawn at places
-- [ ] `components/world/src/agentworld/world/move.lpy`: BFS/A* pathfinding on the grid; `(step-entity world ent)` advances one tile along path toward `:target`, recomputes on blockage; idle wander behavior
-- [ ] `components/world/src/agentworld/world/proximity.lpy`: `(pairs-within world r)` → seq of agent pairs within Chebyshev distance r, excluding pairs on cooldown (cooldown map passed in — proximity stays pure)
-- [ ] `components/persona/src/agentworld/persona/core.lpy`: 6 personas as data (name, occupation, personality, speech style, goal, home place) — e.g., Mara the baker, Theo the blacksmith, Isolde the fisherwoman, Bram the innkeeper, Cass the herbalist, Otto the dockmaster; `(system-prompt persona)` and `(decision-prompt persona perception)` builders
-- [ ] `components/memory/src/agentworld/memory/core.lpy`: per-agent ring buffer (last K=20 events as strings), `(remember! store agent-id event)`, `(recent store agent-id n)`, `(conversation-summary! store agent-id text)`
-- [ ] `tests/world/test_move.lpy`, `tests/world/test_proximity.lpy`, `tests/memory/test_core.lpy`
+- [x] `components/world/src/agentworld/world/grid.lpy`: tile map (48×32) defined as data — walkable/blocked tiles, named places with rects (square, tavern, market, dock, garden, smithy); loaded from `components/world/resources/map.edn`
+- [x] `components/world/src/agentworld/world/entity.lpy`: agent entity records `{:id :name :pos [x y] :facing :target :path :state}`; spawn at places
+- [x] `components/world/src/agentworld/world/move.lpy`: BFS/A* pathfinding on the grid; `(step-entity world ent)` advances one tile along path toward `:target`, recomputes on blockage; idle wander behavior
+- [x] `components/world/src/agentworld/world/proximity.lpy`: `(pairs-within world r)` → seq of agent pairs within Chebyshev distance r, excluding pairs on cooldown (cooldown map passed in — proximity stays pure)
+- [x] `components/persona/src/agentworld/persona/core.lpy`: 6 personas as data (name, occupation, personality, speech style, goal, home place) — e.g., Mara the baker, Theo the blacksmith, Isolde the fisherwoman, Bram the innkeeper, Cass the herbalist, Otto the dockmaster; `(system-prompt persona)` and `(decision-prompt persona perception)` builders
+- [x] `components/memory/src/agentworld/memory/core.lpy`: per-agent ring buffer (last K=20 events as strings), `(remember! store agent-id event)`, `(recent store agent-id n)`, `(conversation-summary! store agent-id text)`
+- [x] `tests/world/test_move.lpy`, `tests/world/test_proximity.lpy`, `tests/memory/test_core.lpy`
 
 ### Verification (Phase 2)
 - nREPL: build world, spawn 6 agents, `(dotimes [_ 50] (tick-move!))`-style loop at the REPL → all agents have valid walkable positions; an agent given `:target` at the tavern arrives within path-length ticks

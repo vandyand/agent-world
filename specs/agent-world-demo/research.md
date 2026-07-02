@@ -119,7 +119,7 @@ Build the headless Basilisp sim (option 3) with the one-venv orchestrator stack,
 
 1. **Does autogen-agentchat 0.7.5 actually work against OpenRouter with openai 2.x installed?** → Phase 0 smoke test. Fallback pre-designed (isolated worker venv).
 2. **Sprite/tile art source** — draw a tiny original tileset (16×16, few tiles + 1 agent sprite recolored per agent) vs. use a CC0 pack (e.g., Kenney). Default: Kenney CC0 pack fetched into `bases/server/resources/public/assets/` with attribution in README; fallback: generated colored-rect "pixel" style that still looks intentional.
-3. **Chronicle cadence and conversation concurrency** — start with: decisions every 8 ticks/agent (staggered), one conversation at a time world-wide (queue others), chronicle every 120 ticks. Tune in Phase 6 polish.
+3. **Chronicle cadence and conversation concurrency** — start with: decisions every 20 ticks/agent (staggered), one conversation at a time world-wide (queue others), chronicle every 120 ticks. Tune in Phase 6 polish.
 4. **Replay file size budget** for Vercel static hosting — target < 5 MB for a 10-minute run; if exceeded, record state keyframes + events instead of full diffs.
 
 ## References

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent World — Emberwick</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2314181c'/%3E%3Crect x='3' y='5' width='10' height='6' fill='%23f2c14e'/%3E%3Crect x='4' y='1' width='8' height='5' fill='%23eab88f'/%3E%3Crect x='4' y='0' width='8' height='2' fill='%23875f2c'/%3E%3Crect x='6' y='3' width='1' height='1' fill='%2322252a'/%3E%3Crect x='9' y='3' width='1' height='1' fill='%2322252a'/%3E%3Crect x='4' y='11' width='3' height='3' fill='%232b2b33'/%3E%3Crect x='9' y='11' width='3' height='3' fill='%232b2b33'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="topbar">
+    <h1>Emberwick</h1>
+    <span id="mode-badge" class="badge">connecting…</span>
+    <div id="live-controls" hidden>
+      <button id="btn-pause" type="button">Pause</button>
+      <label class="speed-label">speed
+        <select id="live-speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+      </label>
+    </div>
+    <div id="spend-hud" title="LLM spend this run">
+      <span id="spend-usd">$0.0000</span>
+      <span id="spend-calls">0 calls</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="canvas-wrap">
+      <canvas id="world" width="768" height="512"></canvas>
+      <div id="replay-bar" hidden>
+        <button id="btn-play" type="button">Pause</button>
+        <label class="speed-label">speed
+          <select id="replay-speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </label>
+        <input id="scrubber" type="range" min="0" max="100" value="0" step="1">
+        <span id="tick-label">tick 0</span>
+      </div>
+    </div>
+
+    <aside id="panel">
+      <section id="inspector">
+        <h2>Agent Inspector</h2>
+        <div id="inspector-body">
+          <p class="hint">Click an agent on the map.</p>
+        </div>
+      </section>
+      <section id="chronicle">
+        <h2>Town Chronicle</h2>
+        <p id="chronicle-text" class="hint">No chronicle yet.</p>
+      </section>
+      <section id="feed">
+        <h2>Events</h2>
+        <ul id="feed-list"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer id="pagefoot">
+    <a href="https://github.com/vandyand/agent-world#architecture" rel="noopener">Basilisp Polylith · LangGraph · AutoGen · CrewAI · OpenRouter</a>
+  </footer>
+
+  <script type="module" src="viewer.js"></script>
+</body>
+</html>

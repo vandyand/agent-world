@@ -1,0 +1,454 @@
+(ns agentworld.engine.core
+  "The sim engine: a deterministic tick loop orchestrating movement,
+  LLM decisions (cognition), proximity conversations, and the chronicle.
+
+  Canonical time/call budget (implementation plan, Phase 4): 1 sim-minute
+  = 60 ticks; each agent gets ONE decision LLM call every :decision-cadence
+  (20) ticks, staggered round-robin (agent i decides on ticks where
+  (mod tick cadence) = i); at most ~1 conversation at a time; chronicle
+  every :chronicle-cadence (120) ticks. For the canonical 10-sim-minute
+  6-agent run: 600 ticks -> <=180 decisions + <=10 conversations + 5
+  chronicles ~= <=250 LLM calls ~= $0.05-0.10 at default prices.
+
+  CONCURRENCY DISCIPLINE — the invariants this namespace lives by:
+    * ONLY the tick thread mutates world/state (workers push results onto
+      a synchronized queue.Queue; tick! / await-quiescent! apply them).
+    * per-agent :decision-in-flight? — an agent whose decision is pending
+      is skipped at its next slot, never double-enqueued.
+    * at most ONE in-flight conversation world-wide, and ONE in-flight
+      chronicle.
+    * bounded LLM work: a small ThreadPoolExecutor; jobs are snapshots
+      (persona + perception values), never live references to sim state.
+
+  LLM functions are swappable for stubbing:
+    (make-sim {:decide-fn f :converse-fn g :chronicle-fn h})
+  with live defaults resolved lazily from cognition/conversation/chronicle
+  (lazy so stubbed sims never import langgraph/autogen/crewai)."
+  (:import queue random
+           [concurrent.futures :as futures])
+  (:require [agentworld.inference.cost :as cost]
+            [agentworld.memory.core :as memory]
+            [agentworld.persona.core :as persona]
+            [agentworld.recorder.core :as recorder]
+            [agentworld.world.entity :as entity]
+            [agentworld.world.grid :as grid]
+            [agentworld.world.move :as move]
+            [agentworld.world.proximity :as prox]))
+
+(def sim-defaults
+  {:decision-cadence 20
+   :chronicle-cadence 120
+   :proximity-r 3
+   :conversation-cooldown 90
+   :keyframe-every 10
+   :max-workers 4})
+
+;; ---------------------------------------------------------------------------
+;; Default (live) LLM fns — resolved lazily so stub runs stay import-light
+;; ---------------------------------------------------------------------------
+
+(defn- lazily [sym]
+  (fn [& args] (apply (requiring-resolve sym) args)))
+
+(def default-decide-fn (lazily 'agentworld.cognition.graph/decide!))
+(def default-converse-fn (lazily 'agentworld.conversation.core/converse!))
+(def default-chronicle-fn (lazily 'agentworld.chronicle.core/chronicle!))
+
+;; ---------------------------------------------------------------------------
+;; Construction
+;; ---------------------------------------------------------------------------
+
+(defn make-sim
+  "Build a sim. opts (all optional):
+    :personas   seq of persona maps (default persona/all-personas)
+    :seed       int RNG seed (movement determinism)
+    :recorder   an open recorder (agentworld.recorder.core), or nil
+    :decide-fn / :converse-fn / :chronicle-fn  swappable LLM fns
+    plus any sim-defaults override (:decision-cadence etc.)."
+  ([] (make-sim {}))
+  ([opts]
+   (let [cfg (merge sim-defaults (dissoc opts :personas :recorder :seed
+                                         :decide-fn :converse-fn :chronicle-fn))
+         personas (vec (or (:personas opts) persona/all-personas))
+         world (reduce (fn [w p]
+                         (entity/spawn-at w (:home p)
+                                          {:id (:id p) :name (:name p)}))
+                       (grid/make-world)
+                       personas)]
+     {:config cfg
+      :personas-by-id (into {} (map (juxt :id identity) personas))
+      :world (atom world)
+      :memory (memory/make-store)
+      :tick (atom 0)
+      :state (atom {:tick 0
+                    :agents {}
+                    :active-conversation nil
+                    :chronicle nil
+                    :spend (cost/spend-snapshot)})
+      :cooldowns (atom {})                 ; pair-key -> expiry tick
+      :in-flight (atom {:decisions #{} :conversation nil :chronicle? false})
+      :pending (atom 0)                    ; jobs submitted, results not yet applied
+      :results (queue/Queue)
+      :executor (futures/ThreadPoolExecutor ** :max_workers (:max-workers cfg))
+      :events (atom [])                    ; human-readable strings, chronicle fodder
+      :flags (atom {:budget-exceeded? false})
+      :rng (random/Random (:seed opts))
+      :recorder (:recorder opts)
+      :decide-fn (or (:decide-fn opts) default-decide-fn)
+      :converse-fn (or (:converse-fn opts) default-converse-fn)
+      :chronicle-fn (or (:chronicle-fn opts) default-chronicle-fn)})))
+
+;; ---------------------------------------------------------------------------
+;; Small helpers (tick thread only)
+;; ---------------------------------------------------------------------------
+
+(defn- emit-event!
+  "Emit a sanitized recorder event (no-op without a recorder). :recorder
+  may be a recorder map (JSONL file, see agentworld.recorder.core) or a
+  plain fn — fn recorders receive each event AFTER sanitization, so every
+  sink downstream of the engine sees only whitelisted fields."
+  [sim event]
+  (when-let [rec (:recorder sim)]
+    (if (map? rec)
+      (recorder/emit! rec event)
+      (rec (recorder/sanitize event))))
+  nil)
+
+(defn- spend-brief []
+  (let [{:keys [total-usd calls]} (cost/spend-snapshot)]
+    {:total-usd total-usd :calls calls}))
+
+(defn- emit-spend! [sim t]
+  (emit-event! sim (merge {:type :spend :tick t} (spend-brief))))
+
+(defn- note-event!
+  "Append a chronicle-fodder event string (bounded)."
+  [sim s]
+  (swap! (:events sim) (fn [evs] (vec (take-last 40 (conj evs (str s)))))))
+
+(defn- conversing-ids [sim]
+  (if-let [{:keys [a b]} (:conversation @(:in-flight sim))]
+    #{a b}
+    #{}))
+
+(defn- agents-brief [world]
+  (into {}
+        (map (fn [[id ent]]
+               [id (select-keys ent [:id :name :pos :facing :state])])
+             (:agents world))))
+
+(defn budget-exceeded? [sim]
+  (:budget-exceeded? @(:flags sim)))
+
+(defn snapshot
+  "Current state snapshot {:tick :agents :active-conversation :chronicle
+  :spend}."
+  [sim]
+  @(:state sim))
+
+;; ---------------------------------------------------------------------------
+;; Job submission (tick thread enqueues; workers only touch the queue)
+;; ---------------------------------------------------------------------------
+
+(defn- submit-job!
+  "Submit job-fn (returning a result map) to the executor; the worker
+  pushes the result — or an :error result — onto the results queue."
+  [sim kind base job-fn]
+  (swap! (:pending sim) inc)
+  (.submit (:executor sim)
+           (fn worker []
+             (.put (:results sim)
+                   (try
+                     (merge base {:kind kind :value (job-fn)})
+                     (catch python/Exception e
+                       (merge base {:kind :error :job kind :error e}))))))
+  nil)
+
+(defn- perception-for
+  "Perception snapshot for an agent (built on the tick thread — workers
+  never read live sim state)."
+  [sim world ent]
+  (let [r (get-in sim [:config :proximity-r])
+        store (:memory sim)
+        id (:id ent)
+        nearby (->> (vals (:agents world))
+                    (remove #(= id (:id %)))
+                    (filter #(<= (prox/chebyshev (:pos ent) (:pos %)) r))
+                    (mapv :name))]
+    {:place (grid/place-at world (:pos ent))
+     :nearby-agents nearby
+     :places (vec (sort-by str (keys (:places world))))
+     :memories (memory/recent store id 5)
+     :last-conversation (memory/last-conversation store id)}))
+
+(defn- enqueue-decision! [sim id]
+  (let [world @(:world sim)
+        ent (get-in world [:agents id])
+        p (get-in sim [:personas-by-id id])
+        perception (perception-for sim world ent)
+        decide-fn (:decide-fn sim)]
+    (swap! (:in-flight sim) update :decisions conj id)
+    (submit-job! sim :decision {:id id}
+                 (fn [] (decide-fn p perception)))))
+
+(defn- start-conversation! [sim t ent-a ent-b]
+  (let [world @(:world sim)
+        id-a (:id ent-a) id-b (:id ent-b)
+        pa (get-in sim [:personas-by-id id-a])
+        pb (get-in sim [:personas-by-id id-b])
+        place (or (grid/place-at world (:pos ent-a))
+                  (grid/place-at world (:pos ent-b))
+                  "street")
+        converse-fn (:converse-fn sim)]
+    (swap! (:in-flight sim) assoc :conversation
+           {:a id-a :b id-b :place place :since t})
+    (swap! (:state sim) assoc :active-conversation
+           {:a (:name pa) :b (:name pb) :place place :since t})
+    (submit-job! sim :conversation {:a id-a :b id-b :place place}
+                 (fn [] (converse-fn pa pb {:place place})))))
+
+(defn- enqueue-chronicle! [sim]
+  (let [events (vec (take-last 15 @(:events sim)))
+        prior (:chronicle @(:state sim))
+        chronicle-fn (:chronicle-fn sim)]
+    (swap! (:in-flight sim) assoc :chronicle? true)
+    (submit-job! sim :chronicle {}
+                 (fn [] (chronicle-fn events prior)))))
+
+;; ---------------------------------------------------------------------------
+;; Result application (tick thread only)
+;; ---------------------------------------------------------------------------
+
+(defn- resolve-place-kw
+  "Intent :place string -> a known place keyword, or nil."
+  [world place]
+  (when place
+    (let [k (keyword (.strip (.lower (str place))))]
+      (when (contains? (:places world) k) k))))
+
+(defn- find-agent-by-name [world nm]
+  (when nm
+    (let [needle (.lower (str nm))]
+      (some #(when (= needle (.lower (str (:name %)))) %)
+            (vals (:agents world))))))
+
+(defn- apply-intent-to-world
+  "Apply an intent to one agent (pure world -> world)."
+  [world id intent]
+  (if-let [ent (get-in world [:agents id])]
+    (case (:action intent)
+      "goto" (if-let [pk (resolve-place-kw world (:place intent))]
+               (if (grid/place-center world pk)
+                 (move/send-to world id pk)
+                 world)
+               world)
+      "seek" (if-let [other (find-agent-by-name world (:target intent))]
+               (if (= (:id other) id)
+                 world
+                 (assoc-in world [:agents id]
+                           (move/set-target world ent (:pos other))))
+               world)
+      "stay" (assoc-in world [:agents id]
+                       (assoc ent :target nil :path [] :state :idle))
+      ;; "wander" and anything else: drop the target, wander naturally
+      (assoc-in world [:agents id] (assoc ent :target nil :path [])))
+    world))
+
+(defn- apply-decision! [sim t {:keys [id value]}]
+  (swap! (:in-flight sim) update :decisions disj id)
+  (let [intent value
+        ent (get-in @(:world sim) [:agents id])
+        nm (:name ent)]
+    (swap! (:world sim) apply-intent-to-world id intent)
+    (memory/remember! (:memory sim) id
+                      (str "[decision] " (:action intent)
+                           (when (:place intent) (str " " (:place intent)))
+                           (when (:target intent) (str " " (:target intent)))
+                           (when (:reason intent) (str " — " (:reason intent)))))
+    (note-event! sim (str nm " decided to " (:action intent)
+                          (when (:place intent) (str " the " (:place intent)))
+                          (when (:target intent) (str " " (:target intent)))
+                          (when (:reason intent) (str " — " (:reason intent)))))
+    (emit-event! sim (merge {:type :intent :tick t :id id :name nm}
+                            (select-keys intent [:action :place :target
+                                                 :reason :route])))
+    (emit-spend! sim t)))
+
+(defn- end-conversation!
+  "Shared cleanup for conversation success AND failure: clear in-flight,
+  un-freeze both agents, start the pair cooldown."
+  [sim t id-a id-b]
+  (let [cd (get-in sim [:config :conversation-cooldown])]
+    (swap! (:in-flight sim) assoc :conversation nil)
+    (swap! (:state sim) assoc :active-conversation nil)
+    (swap! (:cooldowns sim) assoc (prox/pair-key id-a id-b) (+ t cd))))
+
+(defn- apply-conversation! [sim t {:keys [a b place value]}]
+  (let [{:keys [transcript summary]} value
+        world @(:world sim)
+        name-a (get-in world [:agents a :name])
+        name-b (get-in world [:agents b :name])]
+    (end-conversation! sim t a b)
+    (memory/conversation-summary! (:memory sim) a
+                                  (str "with " name-b " at the "
+                                       (if (keyword? place) (name place) place)
+                                       ": " summary))
+    (memory/conversation-summary! (:memory sim) b
+                                  (str "with " name-a " at the "
+                                       (if (keyword? place) (name place) place)
+                                       ": " summary))
+    (note-event! sim (str name-a " and " name-b " chatted at the "
+                          (if (keyword? place) (name place) place)
+                          ": " summary))
+    (emit-event! sim {:type :conversation :tick t :a name-a :b name-b
+                      :place place :transcript transcript :summary summary})
+    (emit-spend! sim t)))
+
+(defn- apply-chronicle! [sim t {:keys [value]}]
+  (swap! (:in-flight sim) assoc :chronicle? false)
+  (let [text (str value)]
+    (swap! (:state sim) assoc :chronicle text)
+    (emit-event! sim {:type :chronicle :tick t :text text})
+    (emit-spend! sim t)))
+
+(defn- apply-error! [sim t {:keys [job id a b error]}]
+  (case job
+    :decision (swap! (:in-flight sim) update :decisions disj id)
+    :conversation (end-conversation! sim t a b)
+    :chronicle (swap! (:in-flight sim) assoc :chronicle? false)
+    nil)
+  (if (= :budget-exceeded (:error (ex-data error)))
+    (swap! (:flags sim) assoc :budget-exceeded? true)
+    (println (str "engine: " (name (or job :unknown)) " job failed: " error))))
+
+(defn- apply-result! [sim result]
+  (swap! (:pending sim) dec)
+  (let [t @(:tick sim)]
+    (case (:kind result)
+      :decision (apply-decision! sim t result)
+      :conversation (apply-conversation! sim t result)
+      :chronicle (apply-chronicle! sim t result)
+      :error (apply-error! sim t result))))
+
+(defn- drain-results!
+  "Apply every result currently on the queue (non-blocking)."
+  [sim]
+  (loop []
+    (when-let [r (try (.get-nowait (:results sim))
+                      (catch queue/Empty _ nil))]
+      (apply-result! sim r)
+      (recur))))
+
+(defn await-quiescent!
+  "Block until no LLM work is in flight, applying results as they arrive.
+  Call from the tick thread between ticks (headless max-speed mode) so
+  every decision slot in the canonical call budget actually lands. Raises
+  queue.Empty if a worker stalls past timeout-s."
+  ([sim] (await-quiescent! sim 180))
+  ([sim timeout-s]
+   (loop []
+     (when (pos? @(:pending sim))
+       (apply-result! sim (.get (:results sim) ** :timeout timeout-s))
+       (recur)))))
+
+;; ---------------------------------------------------------------------------
+;; Tick phases
+;; ---------------------------------------------------------------------------
+
+(defn- step-movement!
+  "Advance every non-conversing agent one movement step; emit :move events
+  for agents whose position changed."
+  [sim t]
+  (let [frozen (conversing-ids sim)
+        rng (:rng sim)]
+    (doseq [id (sort-by str (keys (:agents @(:world sim))))]
+      (when-not (contains? frozen id)
+        (let [world @(:world sim)
+              ent (get-in world [:agents id])
+              ent' (move/step-entity world ent rng)]
+          (swap! (:world sim) assoc-in [:agents id] ent')
+          (when (not= (:pos ent) (:pos ent'))
+            (emit-event! sim (merge {:type :move :tick t}
+                                    (select-keys ent' [:id :name :pos
+                                                       :facing :state])))))))))
+
+(defn- maybe-enqueue-decision!
+  "Staggered round-robin: on tick t, slot (mod t cadence) names the agent
+  (by sorted-id index) whose decision fires — unless one is already in
+  flight for it (:decision-in-flight? discipline) or it is mid-conversation."
+  [sim t]
+  (let [cadence (get-in sim [:config :decision-cadence])
+        ids (vec (sort-by str (keys (:agents @(:world sim)))))
+        slot (mod t cadence)]
+    (when (< slot (count ids))
+      (let [id (nth ids slot)]
+        (when (and (not (contains? (:decisions @(:in-flight sim)) id))
+                   (not (contains? (conversing-ids sim) id)))
+          (enqueue-decision! sim id))))))
+
+(defn- active-cooldowns
+  "Prune expired cooldowns; return the live map for proximity exclusion."
+  [sim t]
+  (swap! (:cooldowns sim)
+         (fn [cds] (into {} (filter (fn [[_ expiry]] (> expiry t)) cds)))))
+
+(defn- maybe-start-conversation!
+  "Start at most one conversation world-wide from the closest proximity
+  pair not on cooldown."
+  [sim t]
+  (when (nil? (:conversation @(:in-flight sim)))
+    (let [r (get-in sim [:config :proximity-r])
+          cds (active-cooldowns sim t)
+          pairs (prox/pairs-within @(:world sim) r cds)]
+      (when-let [[a b] (first pairs)]
+        (start-conversation! sim t a b)))))
+
+(defn- maybe-enqueue-chronicle! [sim t]
+  (let [cadence (get-in sim [:config :chronicle-cadence])]
+    (when (and (pos? t)
+               (zero? (mod t cadence))
+               (not (:chronicle? @(:in-flight sim)))
+               (seq @(:events sim)))
+      (enqueue-chronicle! sim))))
+
+(defn- maybe-keyframe! [sim t]
+  (when (zero? (mod t (get-in sim [:config :keyframe-every])))
+    (let [st @(:state sim)]
+      (emit-event! sim {:type :tick-state
+                        :tick t
+                        :agents (agents-brief @(:world sim))
+                        :active-conversation (:active-conversation st)
+                        :chronicle (:chronicle st)
+                        :spend (spend-brief)}))))
+
+(defn tick!
+  "Advance the sim one tick. MUST be called from a single thread (the tick
+  thread) — this is the only place worker results are folded into world
+  state. Returns the new tick number."
+  [sim]
+  (let [t (swap! (:tick sim) inc)]
+    (drain-results! sim)
+    (step-movement! sim t)
+    (maybe-enqueue-decision! sim t)
+    (maybe-start-conversation! sim t)
+    (maybe-enqueue-chronicle! sim t)
+    (swap! (:state sim) assoc
+           :tick t
+           :agents (agents-brief @(:world sim))
+           :spend (cost/spend-snapshot))
+    (maybe-keyframe! sim t)
+    t))
+
+(defn finish!
+  "Wait for all in-flight LLM work, apply the last results, and shut the
+  executor down. Call once after the final tick!."
+  [sim]
+  (try
+    (await-quiescent! sim)
+    (finally
+      (.shutdown (:executor sim) ** :wait true)))
+  (drain-results! sim)
+  (swap! (:state sim) assoc
+         :agents (agents-brief @(:world sim))
+         :spend (cost/spend-snapshot))
+  nil)

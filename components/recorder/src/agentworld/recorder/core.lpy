@@ -1,0 +1,161 @@
+(ns agentworld.recorder.core
+  "Replay recorder: sanitized JSON-lines event log + lazy reader.
+
+  Event types (all include :type + :tick):
+    :tick-state    keyframe snapshot every N ticks
+                   {:agents :active-conversation :chronicle :spend}
+    :move          one agent moved   {:id :name :pos :facing :state}
+    :intent        a decision landed {:id :name :action :place :target
+                                      :reason :route}
+    :conversation  a chat finished   {:a :b :place :transcript :summary}
+    :chronicle     chronicle updated {:text}
+    :spend         spend changed     {:total-usd :calls}
+
+  SECURITY: every event passes through (sanitize event) at the emit
+  boundary. Sanitize WHITELISTS fields per event type — positions, names,
+  transcripts, chronicle text, and spend totals survive; raw prompts,
+  system messages, request payloads, and any unknown field are structurally
+  excluded (unknown event types are refused outright). As belt-and-braces,
+  every surviving string is scrubbed for key-like substrings (sk-or-...).
+
+  Pure — no LLM component requires (check_deps enforces this)."
+  (:import json os os.path)
+  (:require [basilisp.walk :as walk]))
+
+;; ---------------------------------------------------------------------------
+;; Sanitizer (the public-artifact security boundary)
+;; ---------------------------------------------------------------------------
+
+(def ^:private agent-keys #{:id :name :pos :facing :state})
+(def ^:private transcript-keys #{:speaker :text})
+(def ^:private spend-keys #{:total-usd :calls})
+(def ^:private convo-brief-keys #{:a :b :place :since})
+
+(def event-whitelist
+  "Allowed top-level keys per event type. Anything else is dropped."
+  {:tick-state #{:type :tick :agents :active-conversation :chronicle :spend}
+   :move #{:type :tick :id :name :pos :facing :state}
+   :intent #{:type :tick :id :name :action :place :target :reason :route}
+   :conversation #{:type :tick :a :b :place :transcript :summary}
+   :chronicle #{:type :tick :text}
+   :spend #{:type :tick :total-usd :calls}})
+
+(def ^:private key-like-pattern
+  "OpenRouter-style API keys (sk-or-v1-...) anywhere inside a string."
+  #"sk-or-[A-Za-z0-9_\-]+")
+
+(defn- scrub-strings
+  "Replace key-like substrings in every string value under x."
+  [x]
+  (walk/postwalk
+   (fn [v]
+     (if (string? v)
+       (.sub (re-pattern key-like-pattern) "[redacted]" v)
+       v))
+   x))
+
+(defn- sanitize-agents
+  "Agents (map id->ent or seq of ents) -> vector of whitelisted agent maps."
+  [agents]
+  (let [ents (if (map? agents) (vals agents) agents)]
+    (vec (sort-by (comp str :id)
+                  (map #(select-keys % agent-keys) ents)))))
+
+(defn sanitize
+  "Whitelist an event down to its public-safe fields. Throws ex-info on
+  unknown event types — the emit boundary is strict by design."
+  [event]
+  (let [etype (keyword (:type event))
+        allowed (get event-whitelist etype)]
+    (when-not allowed
+      (throw (ex-info (str "recorder: unknown event type " (:type event))
+                      {:error :unknown-event-type :type (:type event)})))
+    (-> (select-keys event allowed)
+        (assoc :type etype)
+        (cond->
+         (contains? event :agents)
+          (update :agents sanitize-agents)
+
+          (contains? event :transcript)
+          (update :transcript
+                  (fn [t] (mapv #(select-keys % transcript-keys) t)))
+
+          (contains? event :spend)
+          (update :spend #(select-keys % spend-keys))
+
+          (map? (:active-conversation event))
+          (update :active-conversation #(select-keys % convo-brief-keys)))
+        scrub-strings)))
+
+;; ---------------------------------------------------------------------------
+;; JSON encoding (small clj->py bridge for the python json module)
+;; ---------------------------------------------------------------------------
+
+(defn- key->str [k]
+  (if (keyword? k) (name k) (str k)))
+
+(defn clj->jsonable
+  "Convert a Basilisp value into python builtins json.dumps understands.
+  Keywords become their names (both as keys and values)."
+  [x]
+  (cond
+    (keyword? x) (name x)
+    (map? x) (let [d (python/dict)]
+               (doseq [[k v] x]
+                 (.__setitem__ d (key->str k) (clj->jsonable v)))
+               d)
+    (or (vector? x) (seq? x) (set? x))
+    (python/list (map clj->jsonable x))
+    :else x))
+
+;; ---------------------------------------------------------------------------
+;; JSONL writer
+;; ---------------------------------------------------------------------------
+
+(defn open-recorder
+  "Open a JSONL recorder writing to path (parent dirs created)."
+  [path]
+  (let [parent (os.path/dirname (os.path/abspath path))]
+    (os/makedirs parent ** :exist_ok true)
+    {:path path :file (python/open path "w")}))
+
+(defn emit!
+  "Sanitize event and append it as one JSON line. Returns nil."
+  [rec event]
+  (let [f (:file rec)]
+    (.write f (json/dumps (clj->jsonable (sanitize event))))
+    (.write f "\n")
+    (.flush f))
+  nil)
+
+(defn close!
+  "Close the recorder's file handle."
+  [rec]
+  (.close (:file rec))
+  nil)
+
+;; ---------------------------------------------------------------------------
+;; Reader
+;; ---------------------------------------------------------------------------
+
+(defn- py->clj
+  "json.loads output -> basilisp data: dicts to maps with keyword keys,
+  lists to vectors; scalars pass through."
+  [x]
+  (cond
+    (python/isinstance x python/dict)
+    (into {} (map (fn [[k v]] [(keyword (str k)) (py->clj v)]) (.items x)))
+
+    (python/isinstance x python/list)
+    (mapv py->clj x)
+
+    :else x))
+
+(defn read-replay
+  "Lazily read a replay JSONL file into event maps (keyword keys; :type
+  values are strings as written, e.g. \"tick-state\")."
+  [path]
+  (->> (iterator-seq (python/iter (python/open path "r")))
+       (map #(.strip %))
+       (remove #(zero? (count %)))
+       (map #(py->clj (json/loads %)))))

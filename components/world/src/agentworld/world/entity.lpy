@@ -1,0 +1,51 @@
+(ns agentworld.world.entity
+  "Agent entities living in the world.
+
+  An entity is a plain map:
+  {:id kw :name str :pos [x y] :facing kw :target [x y]|nil
+   :path [[x y] ...] :state kw :home kw}
+
+  :facing ∈ #{:north :south :east :west}
+  :state  ∈ #{:idle :moving :wandering}
+
+  Pure — no LLM deps."
+  (:require [agentworld.world.grid :as grid]))
+
+(def entity-defaults
+  {:facing :south
+   :target nil
+   :path []
+   :state :idle})
+
+(defn make-entity
+  "Build an entity from attrs. Requires :id (keyword) and :pos; :name
+  defaults from :id."
+  [attrs]
+  (let [{:keys [id pos] :as ent} (merge entity-defaults attrs)]
+    (when-not (keyword? id)
+      (throw (ex-info "entity needs a keyword :id" {:error :bad-entity :attrs attrs})))
+    (when-not (vector? pos)
+      (throw (ex-info "entity needs a :pos [x y]" {:error :bad-entity :attrs attrs})))
+    (if (:name ent) ent (assoc ent :name (name id)))))
+
+(defn agents
+  "Seq of all agent entities in the world."
+  [world]
+  (vals (:agents world)))
+
+(defn agent-by-id
+  [world id]
+  (get-in world [:agents id]))
+
+(defn spawn-at
+  "Spawn an entity at a named place: picks the first walkable tile in the
+  place's rect not already occupied by another agent (deterministic).
+  attrs needs :id; :home defaults to the place. Returns the updated world."
+  [world place-kw attrs]
+  (let [occupied (set (map :pos (agents world)))
+        pos (first (remove occupied (grid/place-walkable-tiles world place-kw)))]
+    (when-not pos
+      (throw (ex-info (str "no free walkable tile in place " place-kw)
+                      {:error :place-full :place place-kw})))
+    (let [ent (make-entity (merge {:home place-kw} attrs {:pos pos}))]
+      (assoc-in world [:agents (:id ent)] ent))))

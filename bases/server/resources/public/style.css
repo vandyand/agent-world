@@ -1,0 +1,259 @@
+/* Agent World viewer — dark pixel-art chrome. No build step. */
+
+:root {
+  --bg: #14181c;
+  --bg-panel: #1c2228;
+  --bg-inset: #10141a;
+  --border: #2c353d;
+  --text: #d7dde2;
+  --text-dim: #8a97a0;
+  --accent: #f2c14e;
+  --ok: #58b368;
+  --warn: #e06c56;
+  --font-ui: "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+#topbar h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: var(--bg-inset);
+}
+.badge.live { color: var(--ok); border-color: var(--ok); }
+.badge.replay { color: var(--accent); border-color: var(--accent); }
+.badge.err { color: var(--warn); border-color: var(--warn); }
+
+#spend-hud {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  display: flex;
+  gap: 10px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 10px;
+}
+#spend-usd { color: var(--ok); }
+#spend-calls { color: var(--text-dim); }
+
+main {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+#canvas-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+canvas#world {
+  display: block;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #000;
+  cursor: pointer;
+  /* scale up to fill available width, but never push the replay bar
+     off-screen — 3:2 canvas, so cap width by the available height too.
+     height:auto preserves the intrinsic aspect ratio, which keeps the
+     click→tile mapping in viewer.js exact (no letterboxing). */
+  width: min(100%, calc((100vh - 150px) * 1.5));
+  height: auto;
+}
+
+#replay-bar, #live-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#replay-bar {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+#replay-bar[hidden], #live-controls[hidden] { display: none; }
+
+#scrubber { flex: 1; accent-color: var(--accent); }
+
+#tick-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 72px;
+  text-align: right;
+}
+
+button {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+
+select {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 6px;
+}
+
+.speed-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+}
+
+#panel {
+  flex: 0 0 340px;
+  min-width: 280px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-self: stretch;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+}
+
+#panel #feed { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+
+#panel section {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+#panel h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+
+.hint { color: var(--text-dim); font-style: italic; margin: 4px 0; }
+
+#inspector-body { font-size: 13px; }
+#inspector-body .agent-name {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  margin: 2px 0 6px;
+}
+#inspector-body dl { margin: 0; }
+#inspector-body dt {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 7px;
+}
+#inspector-body dd { margin: 2px 0 0; }
+#inspector-body ul { margin: 2px 0 0; padding-left: 18px; }
+#inspector-body li { margin: 2px 0; color: var(--text); }
+
+#chronicle-text {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+#feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: 44vh;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+#pagefoot {
+  padding: 6px 16px 10px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+#pagefoot a {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+#pagefoot a:hover { color: var(--accent); }
+#feed-list li {
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.4;
+}
+#feed-list li .ev-tick {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  margin-right: 6px;
+  font-size: 10px;
+}
+#feed-list li.ev-conversation { color: #a8d8b9; }
+#feed-list li.ev-chronicle { color: var(--accent); }

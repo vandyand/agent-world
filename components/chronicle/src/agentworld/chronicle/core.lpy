@@ -1,0 +1,120 @@
+(ns agentworld.chronicle.core
+  "The Town Chronicle: a two-agent CrewAI crew turns raw event-log excerpts
+  into a running narrative.
+
+    chronicler — Task 1: turn the event excerpt into a vivid 2-3 sentence
+                 chronicle entry
+    editor     — Task 2 (context: Task 1): weave the entry into the running
+                 chronicle, keeping it coherent and ≤ 150 words
+
+  Cost discipline: the whole kickoff's worst case is reserve!d up front
+  (CrewAI makes internal calls we don't intercept), then settle!d from
+  result.token_usage (Phase 0 finding). release! on failure.
+
+  CrewAI telemetry is disabled via env vars set BEFORE crewai is imported
+  (hence the top-level import below the ns form)."
+  (:import os)
+  (:require [basilisp.string :as str]
+            [agentworld.inference.core :as inf]
+            [agentworld.inference.cost :as cost]))
+
+;; Must be set before the crewai import (Phase 0 finding).
+(.setdefault (.-environ os) "CREWAI_DISABLE_TELEMETRY" "true")
+(.setdefault (.-environ os) "OTEL_SDK_DISABLED" "true")
+
+(import crewai)
+
+(def chronicle-max-words
+  "Upper bound for the running chronicle text."
+  150)
+
+(def task-max-tokens
+  "Output bound per crew task call."
+  300)
+
+(defn- make-llm
+  "CrewAI LLM routed to OpenRouter (litellm 'openrouter/' prefix) with an
+  explicit max_tokens bound."
+  [model]
+  (crewai/LLM **
+              :model (str "openrouter/" model)
+              :base_url inf/openrouter-base-url
+              :api_key (os/getenv "OPENROUTER_API_KEY")
+              :temperature 0.4
+              :max_tokens task-max-tokens
+              ;; retry bound (crewai native openai provider, default 2) — same
+              ;; guarded-client rule as the openai/autogen clients
+              :max_retries 1))
+
+(defn- token-usage->usage
+  "CrewAI result.token_usage (UsageMetrics) -> cost-guard usage map."
+  [tu]
+  (if (nil? tu)
+    {:input-tokens 0 :output-tokens 0}
+    {:input-tokens (or (.-prompt-tokens tu) 0)
+     :output-tokens (or (.-completion-tokens tu) 0)}))
+
+(defn chronicle!
+  "Update the running Town Chronicle from an event-log excerpt.
+
+  events: seq of event strings; prior: current chronicle text or nil.
+  Returns the updated chronicle string (≤ ~150 words)."
+  [events prior]
+  (let [model (inf/current-model)
+        events-text (str/join "\n" (map #(str "- " %) events))
+        prior-text (or prior
+                       "(The chronicle is empty — this is the first entry.)")
+        ;; Worst case: 2 task calls, each re-sending agent framing (role/
+        ;; backstory/instructions, bounded by 2000 chars) + events + prior +
+        ;; task-1 output (≤ task-max-tokens ≈ 4*task-max-tokens chars).
+        rsv (cost/reserve! model
+                           {:prompt-chars (* 2 (+ (count events-text)
+                                                  (count prior-text)
+                                                  (* 4 task-max-tokens)
+                                                  2000))
+                            :max-output-tokens (* 2 task-max-tokens)})]
+    (try
+      (let [llm (make-llm model)
+            chronicler (crewai/Agent
+                        **
+                        :role "Town Chronicler"
+                        :goal "Turn raw town event logs into vivid, human chronicle entries."
+                        :backstory "You have chronicled daily life in the small town of Emberwick for decades, with an eye for warm, telling detail."
+                        :llm llm
+                        :verbose false
+                        :max_iter 1)
+            editor (crewai/Agent
+                    **
+                    :role "Chronicle Editor"
+                    :goal (str "Keep the running Town Chronicle coherent and under "
+                               chronicle-max-words " words.")
+                    :backstory "You edit the Emberwick Town Chronicle, weaving new entries into the running record and trimming ruthlessly."
+                    :llm llm
+                    :verbose false
+                    :max_iter 1)
+            entry-task (crewai/Task
+                        **
+                        :description (str "Turn this excerpt of today's Emberwick event log into a vivid chronicle entry of 2-3 sentences:\n"
+                                          events-text)
+                        :expected_output "2-3 vivid sentences chronicling the events."
+                        :agent chronicler)
+            edit-task (crewai/Task
+                       **
+                       :description (str "Weave the new chronicle entry into the running Town Chronicle below, keeping it coherent and under "
+                                         chronicle-max-words
+                                         " words. Output ONLY the updated chronicle text.\n\nRunning chronicle:\n"
+                                         prior-text)
+                       :expected_output (str "The updated running chronicle — coherent prose, under "
+                                             chronicle-max-words " words.")
+                       :agent editor
+                       :context #py [entry-task])
+            crew (crewai/Crew **
+                              :agents #py [chronicler editor]
+                              :tasks #py [entry-task edit-task]
+                              :verbose false)
+            result (.kickoff crew)]
+        (cost/settle! (:id rsv) model (token-usage->usage (.-token-usage result)))
+        (str/trim (str (.-raw result))))
+      (catch python/Exception e
+        (cost/release! (:id rsv))
+        (throw e)))))

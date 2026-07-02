@@ -1,0 +1,43 @@
+(ns agentworld.memory.core
+  "Per-agent memory: a bounded ring buffer of event strings plus the most
+  recent conversation summary.
+
+  A store is an atom {agent-id {:events [str ...] :last-conversation str}}.
+  Events are capped at buffer-size (oldest dropped first). Pure of LLM
+  deps — cognition reads memories into prompts, the engine writes them.")
+
+(def buffer-size
+  "Max events retained per agent (K)."
+  20)
+
+(defn make-store
+  "Fresh empty memory store."
+  []
+  (atom {}))
+
+(defn remember!
+  "Append an event string to an agent's ring buffer, dropping the oldest
+  entries beyond buffer-size. Returns nil."
+  [store agent-id event]
+  (swap! store update-in [agent-id :events]
+         (fnil (fn [events]
+                 (vec (take-last buffer-size (conj events (str event)))))
+               []))
+  nil)
+
+(defn recent
+  "The agent's n most recent events, oldest first."
+  [store agent-id n]
+  (vec (take-last n (get-in @store [agent-id :events] []))))
+
+(defn conversation-summary!
+  "Record a conversation summary: stored as the agent's :last-conversation
+  AND remembered as a ring-buffer event. Returns nil."
+  [store agent-id text]
+  (swap! store assoc-in [agent-id :last-conversation] (str text))
+  (remember! store agent-id (str "[conversation] " text)))
+
+(defn last-conversation
+  "The agent's most recent conversation summary, or nil."
+  [store agent-id]
+  (get-in @store [agent-id :last-conversation]))

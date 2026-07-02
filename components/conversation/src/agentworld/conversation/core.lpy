@@ -1,0 +1,135 @@
+(ns agentworld.conversation.core
+  "Proximity conversations between two personas via AutoGen
+  RoundRobinGroupChat (autogen-agentchat 0.7.x against OpenRouter).
+
+  One (converse! a b context) call = one whole conversation (≤ 6 messages,
+  80 max tokens each). Cost discipline: the ENTIRE conversation's worst
+  case is reserve!d up front (AutoGen makes internal per-message calls we
+  don't intercept), then settle!d from the summed per-message models_usage
+  on the transcript — fail-before-spend holds at the conversation
+  granularity. release! on failure.
+
+  Summary = last message text (no extra LLM call)."
+  (:import asyncio os
+           [autogen_agentchat.agents :as agents]
+           [autogen_agentchat.teams :as teams]
+           [autogen_agentchat.conditions :as conditions]
+           [autogen_ext.models.openai :as oai])
+  (:require [basilisp.string :as str]
+            [agentworld.inference.core :as inf]
+            [agentworld.inference.cost :as cost]
+            [agentworld.persona.core :as persona]))
+
+(def max-messages
+  "Termination bound for a conversation (includes the opening task message)."
+  6)
+
+(def per-message-max-tokens
+  "Output bound per conversation message."
+  80)
+
+(def ^:private model-info
+  ;; Explicit model_info required for non-OpenAI model ids (autogen #6502).
+  ;; Shape verified live in Phase 0 (smoke 3).
+  #py {"vision" false
+       "function_calling" false
+       "json_output" false
+       "family" "unknown"
+       "structured_output" false
+       "multiple_system_messages" true})
+
+(defn- make-model-client
+  "AutoGen OpenAIChatCompletionClient bound to OpenRouter — explicit
+  max_tokens + max_retries 1 so the worst-case reservation stays honest."
+  [model]
+  (oai/OpenAIChatCompletionClient **
+                                  :model model
+                                  :base_url inf/openrouter-base-url
+                                  :api_key (os/getenv "OPENROUTER_API_KEY")
+                                  :max_tokens per-message-max-tokens
+                                  :max_retries 1
+                                  :temperature 0.7
+                                  :model_info model-info))
+
+(defn- place-name [place]
+  (if (keyword? place) (name place) (str place)))
+
+(defn- agent-name
+  "AutoGen agent name (must be a valid identifier)."
+  [p]
+  (str/lower-case (:name p)))
+
+(defn- conversation-system
+  "System message for one side of the conversation: persona character +
+  scene context."
+  [p other context]
+  (str (persona/system-prompt p)
+       " You are having a brief conversation with " (:name other)
+       " at the " (place-name (:place context)) "."
+       " Keep each reply to one short sentence, under 20 words."))
+
+(defn- worst-case-opts
+  "Worst-case reserve! opts for a whole conversation: every one of the
+  ≤ max-messages calls re-sends a system prompt + task + the full (maximal)
+  transcript, and may emit per-message-max-tokens."
+  [sys-a sys-b task]
+  (let [transcript-chars (* max-messages per-message-max-tokens 4)
+        per-call-chars (+ (max (count sys-a) (count sys-b))
+                          (count task)
+                          transcript-chars)]
+    {:prompt-chars (* max-messages per-call-chars)
+     :max-output-tokens (* max-messages per-message-max-tokens)}))
+
+(defn- sum-usage
+  "Sum per-message RequestUsage over the AutoGen result messages."
+  [msgs]
+  (reduce (fn [acc m]
+            (if-let [u (.-models-usage m)]
+              (-> acc
+                  (update :input-tokens + (or (.-prompt-tokens u) 0))
+                  (update :output-tokens + (or (.-completion-tokens u) 0)))
+              acc))
+          {:input-tokens 0 :output-tokens 0}
+          msgs))
+
+(defn converse!
+  "Run a ≤6-message conversation between persona-a and persona-b.
+  context: {:place kw|str}. Returns
+  {:transcript [{:speaker display-name :text str} ...] :summary str}."
+  [persona-a persona-b context]
+  (let [model (inf/current-model)
+        sys-a (conversation-system persona-a persona-b context)
+        sys-b (conversation-system persona-b persona-a context)
+        task (str (:name persona-a) " and " (:name persona-b)
+                  " run into each other at the " (place-name (:place context))
+                  ". They stop for a quick chat.")
+        rsv (cost/reserve! model (worst-case-opts sys-a sys-b task))]
+    (try
+      (let [client (make-model-client model)
+            display-names {(agent-name persona-a) (:name persona-a)
+                           (agent-name persona-b) (:name persona-b)}
+            a (agents/AssistantAgent ** :name (agent-name persona-a)
+                                     :model_client client
+                                     :system_message sys-a)
+            b (agents/AssistantAgent ** :name (agent-name persona-b)
+                                     :model_client client
+                                     :system_message sys-b)
+            team (teams/RoundRobinGroupChat
+                  #py [a b]
+                  **
+                  :termination_condition (conditions/MaxMessageTermination
+                                          max-messages))
+            result (asyncio/run (.run team ** :task task))
+            msgs (.-messages result)
+            transcript (->> msgs
+                            (remove #(= "user" (.-source %)))
+                            (mapv (fn [m]
+                                    {:speaker (get display-names (.-source m)
+                                                   (.-source m))
+                                     :text (str (.-content m))})))]
+        (cost/settle! (:id rsv) model (sum-usage msgs))
+        {:transcript transcript
+         :summary (:text (peek transcript))})
+      (catch python/Exception e
+        (cost/release! (:id rsv))
+        (throw e)))))

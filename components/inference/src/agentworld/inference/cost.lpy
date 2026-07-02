@@ -1,0 +1,171 @@
+(ns agentworld.inference.cost
+  "Reservation-based fail-before-spend cost guard.
+
+  One atom holds all spend state. Before dispatching any LLM call, callers
+  (reserve!) a worst-case cost estimate — the reservation is added
+  atomically and the call is REFUSED (ex-info {:error :budget-exceeded})
+  when spent + reserved + estimate would exceed the cap. After the call,
+  (settle!) reconciles actual usage into :spent-usd and releases the
+  reservation — preferring OpenRouter's authoritative :cost field when
+  present in usage (Phase 0 finding), else the price-table estimate.
+
+  Cap comes from env AGENT_WORLD_MAX_SPEND_USD (default 1.00), read
+  per-call so tests can stub cap-usd with with-redefs.
+
+  Atomicity: the budget check runs INSIDE the swap! function, so under
+  contention the compare-and-swap retry loop serializes reservations —
+  two concurrent reserve! calls can never jointly overshoot the cap."
+  (:import os)
+  (:require [agentworld.inference.core :as core]))
+
+(def default-cap-usd 1.00)
+
+(defn ^:redef cap-usd
+  "Spend cap in USD: env AGENT_WORLD_MAX_SPEND_USD, default 1.00.
+  ^:redef so tests can stub it with with-redefs."
+  []
+  (if-let [v (os/getenv "AGENT_WORLD_MAX_SPEND_USD")]
+    (python/float v)
+    default-cap-usd))
+
+(def ^:private empty-state
+  {:spent-usd 0.0
+   :reserved-usd 0.0
+   :calls 0
+   :by-model {}
+   :reservations {}})
+
+(def spend-state
+  "Single source of truth for all LLM spend in this process."
+  (atom empty-state))
+
+(defn reset-spend!
+  "Zero out all spend state (tests / fresh runs)."
+  []
+  (reset! spend-state empty-state))
+
+(defn- model-prices
+  [model]
+  (or (get-in core/model-registry [:prices model])
+      (throw (ex-info (str "no price entry for model " model)
+                      {:error :unknown-model :model model}))))
+
+(defn estimate-usd
+  "Worst-case USD estimate for a prospective call: prompt-chars/4 input
+  tokens + max-output-tokens output tokens at registry prices."
+  [model {:keys [prompt-chars max-output-tokens]}]
+  (let [{:keys [input-usd-per-mtok output-usd-per-mtok]} (model-prices model)]
+    (+ (* (/ (/ (or prompt-chars 0) 4.0) 1000000.0) input-usd-per-mtok)
+       (* (/ (or max-output-tokens 0) 1000000.0) output-usd-per-mtok))))
+
+(defn usage-usd
+  "USD cost of a completed call. Prefers the authoritative :cost field when
+  present in usage (OpenRouter returns it when extra_body usage include is
+  requested); falls back to the price-table token estimate."
+  [model usage]
+  (if-let [cost (:cost usage)]
+    (python/float cost)
+    (let [{:keys [input-usd-per-mtok output-usd-per-mtok]} (model-prices model)]
+      (+ (* (/ (or (:input-tokens usage) 0) 1000000.0) input-usd-per-mtok)
+         (* (/ (or (:output-tokens usage) 0) 1000000.0) output-usd-per-mtok)))))
+
+(defn- apply-usage
+  "Fold usd + usage for model into spend state (pure)."
+  [st model usage usd]
+  (-> st
+      (update :spent-usd + usd)
+      (update :calls inc)
+      (update-in [:by-model model]
+                 (fnil (fn [m]
+                         (-> m
+                             (update :calls inc)
+                             (update :usd + usd)
+                             (update :input-tokens + (or (:input-tokens usage) 0))
+                             (update :output-tokens + (or (:output-tokens usage) 0))))
+                       {:calls 0 :usd 0.0 :input-tokens 0 :output-tokens 0}))))
+
+(defn reserve!
+  "Atomically reserve a worst-case cost estimate BEFORE dispatching a call.
+
+  opts: {:prompt-chars N :max-output-tokens M}
+  Throws ex-info {:error :budget-exceeded} when spent + reserved + estimate
+  > (cap-usd) — fail-before-spend. Returns
+  {:id reservation-id :model model :estimate-usd est}; pass :id to settle!
+  (or release!) once the call completes (or fails)."
+  [model opts]
+  (let [est (estimate-usd model opts)
+        id (str (gensym "rsv"))
+        cap (cap-usd)]
+    (swap! spend-state
+           (fn [{:keys [spent-usd reserved-usd] :as st}]
+             (when (> (+ spent-usd reserved-usd est) cap)
+               (throw (ex-info "LLM budget exceeded — refusing to dispatch"
+                               {:error :budget-exceeded
+                                :model model
+                                :estimate-usd est
+                                :spent-usd spent-usd
+                                :reserved-usd reserved-usd
+                                :cap-usd cap})))
+             (-> st
+                 (update :reserved-usd + est)
+                 (assoc-in [:reservations id] est))))
+    {:id id :model model :estimate-usd est}))
+
+(defn- release-reservation
+  "Remove reservation-id from state, decrementing :reserved-usd (pure)."
+  [st reservation-id]
+  (let [reserved (get-in st [:reservations reservation-id] 0.0)]
+    (-> st
+        (update :reservations dissoc reservation-id)
+        (update :reserved-usd - reserved))))
+
+(defn release!
+  "Release a reservation without recording spend (failed/aborted call)."
+  [reservation-id]
+  (swap! spend-state release-reservation reservation-id)
+  nil)
+
+(defn settle!
+  "Reconcile actual usage into :spent-usd and release the reservation.
+
+  USD resolution, most→least authoritative:
+  1. usage's :cost field (OpenRouter authoritative — trusted even at 0,
+     which is correct for :free models)
+  2. price-table estimate from token counts, when any tokens are present
+  3. the reservation's own worst-case estimate — a framework that
+     returned NO usage metadata (missing/zeroed) is charged its full
+     reservation rather than $0, so absent metadata can never bypass the
+     fail-before-spend cap.
+  Returns the USD amount recorded."
+  [reservation-id model usage]
+  (let [have-cost? (contains? usage :cost)
+        cost-val (:cost usage)
+        tokens (+ (or (:input-tokens usage) 0) (or (:output-tokens usage) 0))
+        reserved (get-in @spend-state [:reservations reservation-id] 0.0)
+        usd (cond
+              (and have-cost? (some? cost-val)) (python/float cost-val)
+              (pos? tokens) (usage-usd model (dissoc usage :cost))
+              :else reserved)]
+    (swap! spend-state
+           (fn [st]
+             (-> st
+                 (release-reservation reservation-id)
+                 (apply-usage model usage usd))))
+    usd))
+
+(defn record-usage!
+  "Record actual usage as spend with no reservation involved (e.g. usage
+  reported after-the-fact by a framework). Returns the USD recorded."
+  [model usage]
+  (let [usd (usage-usd model usage)]
+    (swap! spend-state apply-usage model usage usd)
+    usd))
+
+(defn spend-snapshot
+  "Current spend: {:total-usd :reserved-usd :calls :by-model}."
+  []
+  (let [{:keys [spent-usd reserved-usd calls by-model]} @spend-state]
+    {:total-usd spent-usd
+     :reserved-usd reserved-usd
+     :calls calls
+     :by-model by-model}))

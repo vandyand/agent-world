@@ -1,0 +1,141 @@
+(ns world.test-move
+  "World grid + movement tests — pure, deterministic (seeded rng)."
+  (:import random)
+  (:require [basilisp.test :refer [deftest is testing]]
+            [agentworld.world.grid :as grid]
+            [agentworld.world.entity :as entity]
+            [agentworld.world.move :as move]))
+
+(defn town
+  []
+  (grid/make-world))
+
+(defn spawn-all
+  "World with all six townsfolk at their canonical home places."
+  []
+  (-> (town)
+      (entity/spawn-at :square {:id :mara})
+      (entity/spawn-at :smithy {:id :theo})
+      (entity/spawn-at :dock {:id :isolde})
+      (entity/spawn-at :tavern {:id :bram})
+      (entity/spawn-at :garden {:id :cass})
+      (entity/spawn-at :dock {:id :otto})))
+
+(deftest map-loads-and-validates
+  (let [world (town)]
+    (testing "bundled map has the advertised dimensions and places"
+      (is (= 48 (:width world)))
+      (is (= 32 (:height world)))
+      (is (= #{:square :tavern :market :dock :garden :smithy}
+             (set (keys (:places world))))))
+    (testing "every place has walkable tiles and a center"
+      (doseq [place (keys (:places world))]
+        (let [tiles (vec (grid/place-walkable-tiles world place))
+              center (grid/place-center world place)]
+          (is (seq tiles))
+          (is (grid/walkable? world center)))))
+    (testing "walkable? respects bounds and blocked tiles"
+      (let [border-blocked (grid/walkable? world [0 0])
+            oob (grid/walkable? world [-1 5])
+            oob2 (grid/walkable? world [48 5])]
+        (is (not border-blocked))
+        (is (not oob))
+        (is (not oob2))))))
+
+(deftest spawns-are-walkable-and-distinct
+  (let [world (spawn-all)
+        agents (entity/agents world)
+        positions (map :pos agents)]
+    (is (= 6 (count agents)))
+    (testing "each spawn tile is walkable and inside the home place"
+      (doseq [ent agents]
+        (let [walkable (grid/walkable? world (:pos ent))
+              in-home (grid/in-place? world (:home ent) (:pos ent))]
+          (is walkable)
+          (is in-home))))
+    (testing "no two agents share a tile (dock hosts two)"
+      (is (= 6 (count (set positions)))))))
+
+(deftest bfs-path-properties
+  (let [world (town)
+        from (grid/place-center world :square)
+        to (grid/place-center world :tavern)
+        path (move/find-path world from to)]
+    (testing "path exists, ends at target, excludes start"
+      (is (some? path))
+      (is (= to (peek path)))
+      (is (not= from (first path))))
+    (testing "every step is walkable and adjacent to the previous"
+      (doseq [[a b] (partition 2 1 (cons from path))]
+        (let [walkable (grid/walkable? world b)
+              adjacent (= 1 (+ (abs (- (first a) (first b)))
+                               (abs (- (second a) (second b)))))]
+          (is walkable)
+          (is adjacent))))
+    (testing "degenerate cases"
+      (let [same (move/find-path world from from)
+            unreachable (move/find-path world from [0 0])]
+        (is (= [] same))
+        (is (nil? unreachable))))))
+
+(deftest targeted-agent-arrives
+  (let [world (-> (spawn-all) (move/send-to :mara :tavern))
+        dest (grid/place-center world :tavern)
+        bound (* 2 (+ 48 32))
+        final (loop [w world n 0]
+                (let [ent (entity/agent-by-id w :mara)]
+                  (cond
+                    (= dest (:pos ent)) ent
+                    (>= n bound) ent
+                    :else (recur (assoc-in w [:agents :mara]
+                                           (move/step-entity w ent))
+                                 (inc n)))))]
+    (testing "agent reaches the tavern within the path-length bound"
+      (is (= dest (:pos final)))
+      (is (nil? (:target final)))
+      (is (= :idle (:state final))))))
+
+(deftest blocked-path-recomputes
+  (let [world (town)
+        from (grid/place-center world :square)
+        dest (grid/place-center world :market)
+        ent (move/set-target world (entity/make-entity {:id :probe :pos from}) dest)
+        ;; wall off the first planned step — step-entity must re-route
+        blocked-world (update world :blocked conj (first (:path ent)))
+        stepped (move/step-entity blocked-world ent)
+        arrived (loop [e stepped n 0]
+                  (cond
+                    (= dest (:pos e)) e
+                    (>= n 200) e
+                    :else (recur (move/step-entity blocked-world e) (inc n))))]
+    (testing "first step avoids the newly blocked tile"
+      (is (not= (first (:path ent)) (:pos stepped)))
+      (is (grid/walkable? blocked-world (:pos stepped))))
+    (testing "still arrives via the re-routed path"
+      (is (= dest (:pos arrived))))))
+
+(deftest unreachable-target-goes-idle
+  (let [world (town)
+        from (grid/place-center world :square)
+        ;; target a tile then wall it off entirely
+        dest [2 2]
+        ent (move/set-target world (entity/make-entity {:id :probe :pos from}) dest)
+        sealed (update world :blocked into [[1 1] [2 1] [3 1] [1 2] [3 2]
+                                            [1 3] [2 3] [3 3] [2 2]])
+        stepped (move/step-entity sealed ent)]
+    (is (nil? (:target stepped)))
+    (is (= :idle (:state stepped)))
+    (is (= from (:pos stepped)))))
+
+(deftest fifty-step-walk-stays-walkable
+  (let [rng (random/Random 42)
+        world0 (spawn-all)
+        final (loop [w world0 n 0]
+                (if (>= n 50)
+                  w
+                  (recur (move/step-world w rng) (inc n))))]
+    (testing "after 50 wander/step ticks every agent is on a walkable tile"
+      (is (= 6 (count (entity/agents final))))
+      (doseq [ent (entity/agents final)]
+        (let [ok (grid/walkable? final (:pos ent))]
+          (is ok))))))

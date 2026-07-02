@@ -1,0 +1,47 @@
+(ns world.test-proximity
+  "Proximity pair tests — pure, no world needed (entities are plain maps)."
+  (:require [basilisp.test :refer [deftest is testing]]
+            [agentworld.world.proximity :as prox]))
+
+(def mara {:id :mara :pos [10 10]})
+(def theo {:id :theo :pos [12 10]})   ; chebyshev 2 from mara
+(def cass {:id :cass :pos [20 20]})   ; far from both
+
+(deftest chebyshev-distance
+  (is (= 0 (prox/chebyshev [3 3] [3 3])))
+  (is (= 2 (prox/chebyshev [10 10] [12 10])))
+  (testing "diagonals count once (chessboard metric)"
+    (is (= 3 (prox/chebyshev [0 0] [3 3])))
+    (is (= 5 (prox/chebyshev [1 1] [4 6])))))
+
+(deftest pair-key-is-order-independent
+  (is (= (prox/pair-key :mara :theo) (prox/pair-key :theo :mara)))
+  (is (= [:mara :theo] (prox/pair-key :theo :mara))))
+
+(deftest pairs-within-radius
+  (testing "two agents 2 tiles apart, r=3 → exactly that pair"
+    (let [pairs (prox/pairs-within [mara theo cass] 3)]
+      (is (= 1 (count pairs)))
+      (is (= #{:mara :theo} (set (map :id (first pairs)))))))
+  (testing "r=1 → no pairs"
+    (is (= [] (vec (prox/pairs-within [mara theo cass] 1)))))
+  (testing "accepts a world map with :agents"
+    (let [world {:agents {:mara mara :theo theo :cass cass}}
+          pairs (prox/pairs-within world 3)]
+      (is (= 1 (count pairs)))))
+  (testing "three clustered agents → all three pairs"
+    (let [agents [{:id :a :pos [0 0]} {:id :b :pos [1 1]} {:id :c :pos [0 1]}]]
+      (is (= 3 (count (prox/pairs-within agents 1)))))))
+
+(deftest cooldowns-exclude-pairs
+  (let [cooldowns {(prox/pair-key :mara :theo) 90}]
+    (testing "pair on cooldown → ()"
+      (is (= [] (vec (prox/pairs-within [mara theo cass] 3 cooldowns)))))
+    (testing "cooldown only masks that pair"
+      (let [bram {:id :bram :pos [11 11]}
+            pairs (prox/pairs-within [mara theo bram] 3 cooldowns)]
+        ;; mara-theo cooled down; mara-bram and theo-bram remain
+        (is (= 2 (count pairs)))
+        (is (not (contains? (set (map (fn [[a b]] (prox/pair-key (:id a) (:id b)))
+                                      pairs))
+                            (prox/pair-key :mara :theo))))))))

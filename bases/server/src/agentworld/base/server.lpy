@@ -1,0 +1,300 @@
+(ns agentworld.base.server
+  "FastAPI server base: live sim + browser viewer.
+
+    .venv/bin/basilisp run -n agentworld.base.server -- \\
+        [--port 8700] [--host 127.0.0.1] [--stub] [--seed 42] [--tick-ms 150]
+
+  Routes:
+    GET  /                     viewer index.html (static mount, html mode)
+    GET  /assets/* /replays/*  static (StaticFiles mounts of public subdirs)
+    GET  /api/health           {\"ok\": true, \"tick\": N}
+    GET  /api/map              world geometry {width height blocked places}
+    GET  /api/agent/{id}       persona + entity + last intent + memories
+    POST /api/control          {\"action\": \"start\"|\"pause\"|\"speed\", \"value\"?}
+    WS   /ws/state             JSON state snapshot + recent events, ~10 Hz
+
+  SECURITY:
+    * binds 127.0.0.1 by default; a non-local --host REQUIRES the
+      AGENT_WORLD_CONTROL_TOKEN env var, and every /api/control call must
+      then carry a matching `Agent-World-Control-Token` header (prevents
+      LAN-triggered LLM spend).
+    * the sim's recorder is a fn sink — the engine sanitizes every event
+      (recorder whitelist) before it reaches the feed/websocket.
+
+  The sim runs on a daemon background thread at wall-clock pace
+  (~150 ms/tick), live LLM fns by default; --stub swaps all three LLM fns
+  for deterministic no-network stubs (no spend)."
+  (:import argparse asyncio json os os.path sys threading time
+           [fastapi :as fastapi]
+           [fastapi.staticfiles :as staticfiles]
+           [fastapi.responses :as responses]
+           [uvicorn :as uvicorn])
+  (:require [agentworld.engine.core :as engine]
+            [agentworld.inference.cost :as cost]
+            [agentworld.memory.core :as memory]
+            [agentworld.recorder.core :as recorder]))
+
+(def ^:private this-dir
+  (os.path/dirname (os.path/abspath
+                    (.-__file__ (get (.-modules sys) "agentworld.base.server")))))
+
+(def public-dir
+  "bases/server/resources/public, resolved relative to this file."
+  (os.path/abspath
+   (os.path/join this-dir ".." ".." ".." "resources" "public")))
+
+;; ---------------------------------------------------------------------------
+;; Server-global state (set by -main; read by route handlers)
+;; ---------------------------------------------------------------------------
+
+(defonce !sim (atom nil))
+(defonce !host (atom "127.0.0.1"))
+(defonce !control (atom {:running? true :tick-ms 150.0}))
+(defonce !events (atom []))        ; sanitized feed events (last 100)
+(defonce !last-intents (atom {}))  ; agent-id -> last sanitized :intent event
+
+(def ^:private feed-event-types #{:intent :conversation :chronicle})
+
+(defn- feed-recorder
+  "Fn recorder handed to the engine — receives SANITIZED events (see
+  engine/emit-event!) and keeps the ring buffer the websocket feed reads."
+  [event]
+  (when (contains? feed-event-types (:type event))
+    (swap! !events (fn [evs] (vec (take-last 100 (conj evs event))))))
+  (when (= :intent (:type event))
+    (swap! !last-intents assoc (:id event) event))
+  nil)
+
+(defn state-snapshot
+  "Engine snapshot of the running sim (nREPL verification hook), or nil."
+  []
+  (when-let [sim @!sim]
+    (engine/snapshot sim)))
+
+(defn- state-payload
+  "The JSON-able state map pushed over /ws/state."
+  []
+  (if-let [sim @!sim]
+    (let [snap (engine/snapshot sim)]
+      {:type "state"
+       :tick (:tick snap)
+       :running (:running? @!control)
+       :tick-ms (:tick-ms @!control)
+       :budget-exceeded (engine/budget-exceeded? sim)
+       :agents (vec (sort-by (comp str :id) (vals (:agents snap))))
+       :active-conversation (:active-conversation snap)
+       :chronicle (:chronicle snap)
+       :spend (select-keys (:spend snap) [:total-usd :calls])
+       :events (vec (take-last 30 @!events))})
+    {:type "state" :tick 0 :running false :agents [] :events []}))
+
+;; ---------------------------------------------------------------------------
+;; Route handlers (Starlette-level: handler(request) -> Response; this
+;; avoids FastAPI signature introspection, which basilisp fns don't carry)
+;; ---------------------------------------------------------------------------
+
+(defn- json-response
+  ([data] (json-response data 200))
+  ([data status]
+   (responses/JSONResponse ** :content (recorder/clj->jsonable data)
+                           :status_code status)))
+
+(defn- health-handler [_request]
+  (json-response {:ok true
+                  :tick (if-let [snap (state-snapshot)] (:tick snap) 0)}))
+
+(defn- map-handler [_request]
+  (if-let [sim @!sim]
+    (let [world @(:world sim)]
+      (json-response
+       {:width (:width world)
+        :height (:height world)
+        :blocked (vec (sort (:blocked world)))
+        :places (into {}
+                      (map (fn [[k v]] [k (select-keys v [:rect])])
+                           (:places world)))}))
+    (json-response {:error "sim not started"} 503)))
+
+(defn- agent-handler [request]
+  (if-let [sim @!sim]
+    (let [id (keyword (get (.-path-params request) "agent_id"))
+          p (get-in sim [:personas-by-id id])
+          ent (get-in @(:world sim) [:agents id])]
+      (if (and p ent)
+        (json-response
+         {:id id
+          :persona (select-keys p [:name :occupation :personality
+                                   :speech-style :goal :home])
+          :entity (select-keys ent [:pos :facing :state :target])
+          :last-intent (get @!last-intents id)
+          :memories (memory/recent (:memory sim) id 8)})
+        (json-response {:error "unknown agent"} 404)))
+    (json-response {:error "sim not started"} 503)))
+
+(defn- control-token []
+  (.get (.-environ os) "AGENT_WORLD_CONTROL_TOKEN"))
+
+(defn- control-authorized?
+  "Local binds are trusted; non-local binds require the header to match
+  AGENT_WORLD_CONTROL_TOKEN."
+  [request]
+  (or (= "127.0.0.1" @!host)
+      (let [token (control-token)]
+        (and token
+             (= token (.get (.-headers request) "agent-world-control-token"))))))
+
+(defn- clamp [x lo hi] (max lo (min hi x)))
+
+(defn- apply-control!
+  "Apply a control action; returns [response-data status]."
+  [action value]
+  (case action
+    "start" (do (swap! !control assoc :running? true)
+                [{:ok true :control @!control} 200])
+    "pause" (do (swap! !control assoc :running? false)
+                [{:ok true :control @!control} 200])
+    "speed" (let [mult (try (python/float value)
+                            (catch python/Exception _ nil))]
+              (if (and mult (pos? mult))
+                (do (swap! !control assoc :tick-ms
+                           (/ 150.0 (clamp mult 0.25 10.0)))
+                    [{:ok true :control @!control} 200])
+                [{:ok false :error "speed needs a positive numeric value"} 400]))
+    [{:ok false :error (str "unknown action: " action)} 400]))
+
+(defasync control-handler [request]
+  (if-not (control-authorized? request)
+    (json-response {:ok false :error "control token required"} 403)
+    (let [body (try (await (.json request))
+                    (catch python/Exception _ nil))]
+      (if (nil? body)
+        (json-response {:ok false :error "invalid JSON body"} 400)
+        (let [[data status] (apply-control! (.get body "action")
+                                            (.get body "value"))]
+          (json-response data status))))))
+
+(defasync ws-state-handler [ws]
+  (await (.accept ws))
+  (try
+    (loop []
+      (await (.send-text ws (json/dumps (recorder/clj->jsonable (state-payload)))))
+      (await (asyncio/sleep 0.1))
+      (recur))
+    (catch python/Exception _ nil)))
+
+;; ---------------------------------------------------------------------------
+;; App assembly
+;; ---------------------------------------------------------------------------
+
+(defn make-app []
+  (let [app (fastapi/FastAPI ** :title "agent-world")]
+    (.add-route app "/api/health" health-handler ** :methods #py ["GET"])
+    (.add-route app "/api/map" map-handler ** :methods #py ["GET"])
+    (.add-route app "/api/agent/{agent_id}" agent-handler ** :methods #py ["GET"])
+    (.add-route app "/api/control" control-handler ** :methods #py ["POST"])
+    ;; FastAPI dropped Starlette's app-level add_websocket_route; the
+    ;; router-level one still registers a plain (no-DI) WebSocketRoute.
+    (.add-websocket-route (.-router app) "/ws/state" ws-state-handler)
+    (.mount app "/assets"
+            (staticfiles/StaticFiles ** :directory (os.path/join public-dir "assets"))
+            "assets")
+    (.mount app "/replays"
+            (staticfiles/StaticFiles ** :directory (os.path/join public-dir "replays"))
+            "replays")
+    ;; Last: catch-all static mount serves index.html at /, plus
+    ;; viewer.js / style.css. Routes above win (first match).
+    (.mount app "/"
+            (staticfiles/StaticFiles ** :directory public-dir :html true)
+            "public")
+    app))
+
+;; ---------------------------------------------------------------------------
+;; Sim background thread (wall-clock pace)
+;; ---------------------------------------------------------------------------
+
+(defn- sim-loop []
+  (let [sim @!sim]
+    (loop []
+      (let [{:keys [running? tick-ms]} @!control]
+        (if (and running? (not (engine/budget-exceeded? sim)))
+          (do (engine/tick! sim)
+              (time/sleep (/ tick-ms 1000.0)))
+          (time/sleep 0.15)))
+      (recur))))
+
+(defn- start-sim-thread! []
+  (let [t (threading/Thread ** :target sim-loop :daemon true
+                            :name "agentworld-sim")]
+    (.start t)
+    t))
+
+;; ---------------------------------------------------------------------------
+;; Deterministic no-LLM stubs (--stub) — mirror the headless base's stubs
+;; ---------------------------------------------------------------------------
+
+(defn- make-stub-decide-fn []
+  (let [n (atom 0)]
+    (fn stub-decide [_p perception]
+      (let [i (swap! n inc)
+            places (vec (:places perception))]
+        (case (mod i 3)
+          0 {:action "wander" :reason "stub wander" :route "idle"}
+          1 (if (seq places)
+              {:action "goto"
+               :place (name (nth places (mod i (count places))))
+               :reason "stub goto" :route "set-target"}
+              {:action "stay" :reason "stub stay" :route "idle"})
+          {:action "stay" :reason "stub stay" :route "idle"})))))
+
+(defn- stub-converse-fn [pa pb _context]
+  {:transcript [{:speaker (:name pa) :text "Fine day on the tiles, neighbor."}
+                {:speaker (:name pb) :text "That it is. Mind the budget!"}]
+   :summary (str (:name pa) " and " (:name pb) " swapped stub pleasantries.")})
+
+(defn- stub-chronicle-fn [events _prior]
+  (str "Stub chronicle (" (count events) " events noted)."))
+
+;; ---------------------------------------------------------------------------
+;; CLI
+;; ---------------------------------------------------------------------------
+
+(defn- parse-args [argv]
+  (let [p (argparse/ArgumentParser
+           **
+           :prog "agentworld.base.server"
+           :description "Serve the agent-world viewer + live sim.")]
+    (.add-argument p "--port" ** :type python/int :default 8700)
+    (.add-argument p "--host" ** :default "127.0.0.1"
+                   :help "bind host; non-local requires AGENT_WORLD_CONTROL_TOKEN")
+    (.add-argument p "--seed" ** :type python/int :default 42
+                   :help "movement RNG seed")
+    (.add-argument p "--tick-ms" ** :type python/float :default 150.0
+                   :help "wall-clock ms per tick")
+    (.add-argument p "--stub" ** :action "store_true"
+                   :help "deterministic no-LLM stub fns (no network, no spend)")
+    (.parse-args p (python/list (map str (or argv []))))))
+
+(defn -main []
+  (let [args (parse-args *command-line-args*)
+        host (.-host args)]
+    (when (and (not= host "127.0.0.1") (nil? (control-token)))
+      (println (str "REFUSING to bind " host
+                    " without AGENT_WORLD_CONTROL_TOKEN set — non-local"
+                    " binds must protect /api/control (LLM spend)."))
+      (sys/exit 1))
+    (reset! !host host)
+    (reset! !control {:running? true :tick-ms (.-tick-ms args)})
+    (reset! !sim (engine/make-sim
+                  (merge {:seed (.-seed args) :recorder feed-recorder}
+                         (when (.-stub args)
+                           {:decide-fn (make-stub-decide-fn)
+                            :converse-fn stub-converse-fn
+                            :chronicle-fn stub-chronicle-fn}))))
+    (start-sim-thread!)
+    (println (str "agent-world server: http://" host ":" (.-port args)
+                  (when (.-stub args) "  [STUB mode — no LLM]")))
+    (uvicorn/run (make-app) ** :host host :port (.-port args)
+                 :log_level "warning")))
+
+(when (= 'agentworld.base.server *main-ns*)
+  (-main))

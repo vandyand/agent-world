@@ -1,0 +1,466 @@
+{"tick": 1, "pos": [4, 22], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 1, "pos": [41, 16], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"action": "goto", "tick": 1, "place": "garden", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "cass", "name": "Cass"}
+{"tick": 1, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"transcript": [{"text": "Fine day on the tiles, neighbor.", "speaker": "Isolde"}, {"text": "That it is. Mind the budget!", "speaker": "Otto"}], "tick": 1, "b": "Otto", "place": "dock", "a": "Isolde", "type": "conversation", "summary": "Isolde and Otto swapped stub pleasantries."}
+{"tick": 1, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 2, "pos": [7, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 2, "pos": [5, 22], "facing": "east", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 2, "pos": [41, 15], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 2, "pos": [19, 11], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"action": "stay", "tick": 2, "reason": "stub stay", "type": "intent", "route": "idle", "id": "isolde", "name": "Isolde"}
+{"tick": 2, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 3, "pos": [6, 22], "facing": "east", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 3, "pos": [42, 15], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 3, "pos": [31, 5], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "wander", "tick": 3, "reason": "stub wander", "type": "intent", "route": "idle", "id": "mara", "name": "Mara"}
+{"tick": 3, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 4, "pos": [6, 23], "facing": "south", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 4, "pos": [42, 16], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 4, "pos": [18, 11], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 4, "pos": [43, 15], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 4, "pos": [31, 6], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "goto", "tick": 4, "place": "square", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "otto", "name": "Otto"}
+{"tick": 4, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 5, "pos": [6, 24], "facing": "south", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 5, "pos": [42, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"action": "stay", "tick": 5, "reason": "stub stay", "type": "intent", "route": "idle", "id": "theo", "name": "Theo"}
+{"tick": 5, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 6, "pos": [6, 25], "facing": "south", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 6, "pos": [41, 16], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 6, "pos": [41, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 7, "pos": [7, 25], "facing": "east", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 7, "pos": [40, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 7, "pos": [31, 5], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 8, "pos": [8, 25], "facing": "east", "type": "move", "id": "cass", "state": "idle", "name": "Cass"}
+{"tick": 8, "pos": [39, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 9, "pos": [6, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 9, "pos": [40, 16], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 9, "pos": [19, 11], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 9, "pos": [38, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 9, "pos": [32, 5], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 10, "pos": [40, 17], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 10, "pos": [20, 11], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 10, "pos": [37, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 10, "pos": [32, 6], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 10, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [6, 4], "facing": "west", "id": "bram", "state": "idle", "name": "Bram"}, {"pos": [8, 25], "facing": "east", "id": "cass", "state": "idle", "name": "Cass"}, {"pos": [40, 17], "facing": "south", "id": "isolde", "state": "wandering", "name": "Isolde"}, {"pos": [20, 11], "facing": "east", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [37, 15], "facing": "west", "id": "otto", "state": "moving", "name": "Otto"}, {"pos": [32, 6], "facing": "south", "id": "theo", "state": "wandering", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"tick": 11, "pos": [20, 10], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 11, "pos": [36, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 12, "pos": [6, 5], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 12, "pos": [9, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 12, "pos": [21, 10], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 12, "pos": [35, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 12, "pos": [33, 6], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 13, "pos": [6, 4], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 13, "pos": [8, 25], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 13, "pos": [22, 10], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 13, "pos": [34, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 13, "pos": [33, 7], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 14, "pos": [8, 26], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 14, "pos": [22, 11], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 14, "pos": [33, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 15, "pos": [6, 5], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 15, "pos": [9, 26], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 15, "pos": [32, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 16, "pos": [7, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 16, "pos": [8, 26], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 16, "pos": [21, 11], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 16, "pos": [31, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 16, "pos": [34, 7], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 17, "pos": [6, 5], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 17, "pos": [30, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 17, "pos": [33, 7], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 18, "pos": [39, 17], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 18, "pos": [29, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 19, "pos": [38, 17], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 19, "pos": [21, 10], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 19, "pos": [28, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 20, "pos": [38, 16], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 20, "pos": [21, 9], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 20, "pos": [27, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 20, "pos": [34, 7], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 20, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [6, 5], "facing": "west", "id": "bram", "state": "idle", "name": "Bram"}, {"pos": [8, 26], "facing": "west", "id": "cass", "state": "idle", "name": "Cass"}, {"pos": [38, 16], "facing": "north", "id": "isolde", "state": "wandering", "name": "Isolde"}, {"pos": [21, 9], "facing": "north", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [27, 15], "facing": "west", "id": "otto", "state": "moving", "name": "Otto"}, {"pos": [34, 7], "facing": "east", "id": "theo", "state": "wandering", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"action": "wander", "tick": 20, "reason": "stub wander", "type": "intent", "route": "idle", "id": "bram", "name": "Bram"}
+{"tick": 20, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 21, "pos": [22, 9], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 21, "pos": [26, 15], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"action": "goto", "tick": 21, "place": "garden", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "cass", "name": "Cass"}
+{"tick": 21, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 22, "pos": [7, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 22, "pos": [8, 25], "facing": "north", "type": "move", "id": "cass", "state": "idle", "name": "Cass"}
+{"tick": 22, "pos": [22, 10], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 22, "pos": [26, 16], "facing": "south", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"action": "stay", "tick": 22, "reason": "stub stay", "type": "intent", "route": "idle", "id": "isolde", "name": "Isolde"}
+{"tick": 22, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 23, "pos": [21, 10], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 23, "pos": [25, 16], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 23, "pos": [35, 7], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "wander", "tick": 23, "reason": "stub wander", "type": "intent", "route": "idle", "id": "mara", "name": "Mara"}
+{"tick": 23, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 24, "pos": [7, 6], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 24, "pos": [8, 26], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 24, "pos": [21, 11], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 24, "pos": [25, 17], "facing": "south", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 24, "pos": [35, 6], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "goto", "tick": 24, "place": "square", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "otto", "name": "Otto"}
+{"tick": 24, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 25, "pos": [7, 5], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 25, "pos": [38, 17], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 25, "pos": [22, 11], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 25, "pos": [24, 17], "facing": "west", "type": "move", "id": "otto", "state": "idle", "name": "Otto"}
+{"tick": 25, "pos": [35, 7], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "stay", "tick": 25, "reason": "stub stay", "type": "intent", "route": "idle", "id": "theo", "name": "Theo"}
+{"tick": 25, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 26, "pos": [23, 11], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 26, "pos": [35, 6], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 27, "pos": [9, 26], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 27, "pos": [38, 16], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 27, "pos": [36, 6], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 28, "pos": [38, 17], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 28, "pos": [24, 11], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 28, "pos": [24, 18], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 28, "pos": [36, 5], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 29, "pos": [9, 25], "facing": "north", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 29, "pos": [38, 16], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 30, "pos": [8, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 30, "pos": [10, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 30, "pos": [24, 10], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 30, "pos": [36, 6], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 30, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [8, 5], "facing": "east", "id": "bram", "state": "wandering", "name": "Bram"}, {"pos": [10, 25], "facing": "east", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [38, 16], "facing": "north", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [24, 10], "facing": "north", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [24, 18], "facing": "south", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [36, 6], "facing": "south", "id": "theo", "state": "wandering", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"tick": 31, "pos": [9, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 31, "pos": [9, 25], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 31, "pos": [38, 15], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 32, "pos": [10, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 32, "pos": [24, 9], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 32, "pos": [36, 5], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 33, "pos": [9, 24], "facing": "north", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 33, "pos": [36, 4], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 34, "pos": [9, 5], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 34, "pos": [37, 15], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 34, "pos": [25, 9], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 34, "pos": [23, 18], "facing": "west", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 34, "pos": [36, 5], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 35, "pos": [9, 4], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 35, "pos": [9, 23], "facing": "north", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 35, "pos": [24, 9], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 36, "pos": [9, 5], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 36, "pos": [8, 23], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 36, "pos": [35, 5], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 37, "pos": [9, 4], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 37, "pos": [37, 14], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 37, "pos": [34, 5], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 38, "pos": [36, 14], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 38, "pos": [23, 17], "facing": "north", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 38, "pos": [35, 5], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 39, "pos": [7, 23], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 39, "pos": [24, 17], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 39, "pos": [36, 5], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 40, "pos": [7, 24], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 40, "pos": [36, 4], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 40, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [9, 4], "facing": "north", "id": "bram", "state": "idle", "name": "Bram"}, {"pos": [7, 24], "facing": "south", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [36, 14], "facing": "west", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [24, 9], "facing": "west", "id": "mara", "state": "idle", "name": "Mara"}, {"pos": [24, 17], "facing": "east", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [36, 4], "facing": "north", "id": "theo", "state": "wandering", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"action": "wander", "tick": 40, "reason": "stub wander", "type": "intent", "route": "idle", "id": "bram", "name": "Bram"}
+{"tick": 40, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 41, "pos": [8, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 41, "pos": [36, 5], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "goto", "tick": 41, "place": "garden", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "cass", "name": "Cass"}
+{"tick": 41, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 42, "pos": [7, 25], "facing": "south", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 42, "pos": [37, 14], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"action": "stay", "tick": 42, "reason": "stub stay", "type": "intent", "route": "idle", "id": "isolde", "name": "Isolde"}
+{"tick": 42, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 43, "pos": [8, 5], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 43, "pos": [8, 25], "facing": "east", "type": "move", "id": "cass", "state": "idle", "name": "Cass"}
+{"tick": 43, "pos": [35, 5], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "wander", "tick": 43, "reason": "stub wander", "type": "intent", "route": "idle", "id": "mara", "name": "Mara"}
+{"tick": 43, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 44, "pos": [37, 15], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 44, "pos": [24, 8], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 44, "pos": [24, 18], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"action": "goto", "tick": 44, "place": "square", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "otto", "name": "Otto"}
+{"tick": 44, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 45, "pos": [9, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 45, "pos": [8, 26], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 45, "pos": [37, 16], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 45, "pos": [23, 8], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 45, "pos": [24, 17], "facing": "north", "type": "move", "id": "otto", "state": "idle", "name": "Otto"}
+{"action": "stay", "tick": 45, "reason": "stub stay", "type": "intent", "route": "idle", "id": "theo", "name": "Theo"}
+{"tick": 45, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 46, "pos": [9, 26], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 46, "pos": [24, 18], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 46, "pos": [34, 5], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 47, "pos": [8, 5], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 47, "pos": [10, 26], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 47, "pos": [36, 16], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 47, "pos": [23, 7], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 47, "pos": [24, 19], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 47, "pos": [35, 5], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 48, "pos": [8, 6], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 48, "pos": [10, 25], "facing": "north", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 49, "pos": [7, 6], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 49, "pos": [22, 7], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 49, "pos": [36, 5], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 50, "pos": [22, 6], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 50, "pos": [24, 20], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 50, "pos": [35, 5], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 50, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [7, 6], "facing": "west", "id": "bram", "state": "idle", "name": "Bram"}, {"pos": [10, 25], "facing": "north", "id": "cass", "state": "idle", "name": "Cass"}, {"pos": [36, 16], "facing": "west", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [22, 6], "facing": "north", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [24, 20], "facing": "south", "id": "otto", "state": "wandering", "name": "Otto"}, {"pos": [35, 5], "facing": "west", "id": "theo", "state": "wandering", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"tick": 51, "pos": [11, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 51, "pos": [36, 17], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 52, "pos": [35, 17], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 52, "pos": [22, 7], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 52, "pos": [35, 6], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 53, "pos": [7, 5], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 53, "pos": [12, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 53, "pos": [24, 21], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 54, "pos": [8, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 54, "pos": [12, 24], "facing": "north", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 55, "pos": [9, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 55, "pos": [12, 25], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 55, "pos": [22, 8], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 57, "pos": [34, 6], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 58, "pos": [36, 17], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 58, "pos": [24, 20], "facing": "north", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 59, "pos": [8, 5], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 59, "pos": [12, 24], "facing": "north", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 59, "pos": [36, 18], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 59, "pos": [22, 9], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 59, "pos": [35, 6], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 60, "pos": [9, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 60, "pos": [12, 25], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 60, "pos": [22, 8], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 60, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [9, 5], "facing": "east", "id": "bram", "state": "wandering", "name": "Bram"}, {"pos": [12, 25], "facing": "south", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [36, 18], "facing": "south", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [22, 8], "facing": "north", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [24, 20], "facing": "north", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [35, 6], "facing": "east", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"action": "wander", "tick": 60, "reason": "stub wander", "type": "intent", "route": "idle", "id": "bram", "name": "Bram"}
+{"tick": 60, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 61, "pos": [9, 4], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 61, "pos": [37, 18], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 61, "pos": [35, 7], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "goto", "tick": 61, "place": "garden", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "cass", "name": "Cass"}
+{"tick": 61, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 62, "pos": [8, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 62, "pos": [11, 25], "facing": "west", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 62, "pos": [37, 17], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 62, "pos": [23, 8], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"action": "stay", "tick": 62, "reason": "stub stay", "type": "intent", "route": "idle", "id": "isolde", "name": "Isolde"}
+{"tick": 62, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 63, "pos": [10, 25], "facing": "west", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"action": "wander", "tick": 63, "reason": "stub wander", "type": "intent", "route": "idle", "id": "mara", "name": "Mara"}
+{"tick": 63, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 64, "pos": [9, 25], "facing": "west", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 64, "pos": [38, 17], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 64, "pos": [24, 8], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 64, "pos": [23, 20], "facing": "west", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 64, "pos": [35, 8], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "goto", "tick": 64, "place": "square", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "otto", "name": "Otto"}
+{"tick": 64, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 65, "pos": [7, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 65, "pos": [8, 25], "facing": "west", "type": "move", "id": "cass", "state": "idle", "name": "Cass"}
+{"tick": 65, "pos": [25, 8], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 65, "pos": [23, 19], "facing": "north", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 65, "pos": [35, 7], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "stay", "tick": 65, "reason": "stub stay", "type": "intent", "route": "idle", "id": "theo", "name": "Theo"}
+{"tick": 65, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 66, "pos": [8, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 66, "pos": [25, 7], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 66, "pos": [23, 18], "facing": "north", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 67, "pos": [25, 6], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 67, "pos": [24, 18], "facing": "east", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 68, "pos": [7, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 68, "pos": [24, 6], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 68, "pos": [24, 17], "facing": "north", "type": "move", "id": "otto", "state": "idle", "name": "Otto"}
+{"tick": 69, "pos": [8, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 69, "pos": [23, 17], "facing": "west", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 69, "pos": [35, 6], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 70, "pos": [24, 7], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 70, "pos": [24, 17], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 70, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [8, 4], "facing": "east", "id": "bram", "state": "idle", "name": "Bram"}, {"pos": [8, 25], "facing": "west", "id": "cass", "state": "idle", "name": "Cass"}, {"pos": [38, 17], "facing": "east", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [24, 7], "facing": "south", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [24, 17], "facing": "east", "id": "otto", "state": "wandering", "name": "Otto"}, {"pos": [35, 6], "facing": "north", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"tick": 71, "pos": [9, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 71, "pos": [25, 17], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 72, "pos": [8, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 72, "pos": [37, 17], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 72, "pos": [25, 7], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 72, "pos": [34, 6], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 73, "pos": [24, 7], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 74, "pos": [9, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 74, "pos": [24, 8], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 74, "pos": [35, 6], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 75, "pos": [7, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 75, "pos": [25, 8], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 75, "pos": [35, 7], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 76, "pos": [6, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 76, "pos": [8, 25], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 76, "pos": [25, 18], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 77, "pos": [6, 5], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 77, "pos": [25, 7], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 77, "pos": [25, 19], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 77, "pos": [35, 8], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 78, "pos": [7, 5], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 78, "pos": [9, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 78, "pos": [24, 7], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 78, "pos": [26, 19], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 78, "pos": [34, 8], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 79, "pos": [7, 6], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 79, "pos": [9, 26], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 79, "pos": [38, 17], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 79, "pos": [23, 7], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 80, "pos": [6, 6], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 80, "pos": [9, 25], "facing": "north", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 80, "pos": [23, 6], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 80, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [6, 6], "facing": "west", "id": "bram", "state": "wandering", "name": "Bram"}, {"pos": [9, 25], "facing": "north", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [38, 17], "facing": "east", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [23, 6], "facing": "north", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [26, 19], "facing": "east", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [34, 8], "facing": "west", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"action": "wander", "tick": 80, "reason": "stub wander", "type": "intent", "route": "idle", "id": "bram", "name": "Bram"}
+{"tick": 80, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 81, "pos": [10, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 81, "pos": [38, 16], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 81, "pos": [27, 19], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 81, "pos": [34, 7], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "goto", "tick": 81, "place": "garden", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "cass", "name": "Cass"}
+{"tick": 81, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 82, "pos": [6, 7], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 82, "pos": [9, 25], "facing": "west", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 82, "pos": [38, 15], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 82, "pos": [23, 5], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"action": "stay", "tick": 82, "reason": "stub stay", "type": "intent", "route": "idle", "id": "isolde", "name": "Isolde"}
+{"tick": 82, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 83, "pos": [7, 7], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 83, "pos": [8, 25], "facing": "west", "type": "move", "id": "cass", "state": "idle", "name": "Cass"}
+{"tick": 83, "pos": [23, 6], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 83, "pos": [28, 19], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"action": "wander", "tick": 83, "reason": "stub wander", "type": "intent", "route": "idle", "id": "mara", "name": "Mara"}
+{"tick": 83, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 84, "pos": [9, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 84, "pos": [39, 15], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 84, "pos": [24, 6], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 84, "pos": [28, 18], "facing": "north", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"action": "goto", "tick": 84, "place": "square", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "otto", "name": "Otto"}
+{"tick": 84, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 85, "pos": [39, 16], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 85, "pos": [24, 5], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 85, "pos": [27, 18], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 85, "pos": [34, 8], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "stay", "tick": 85, "reason": "stub stay", "type": "intent", "route": "idle", "id": "theo", "name": "Theo"}
+{"tick": 85, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 86, "pos": [10, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 86, "pos": [40, 16], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 86, "pos": [24, 6], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 86, "pos": [26, 18], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 86, "pos": [33, 8], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 87, "pos": [10, 26], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 87, "pos": [25, 18], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 88, "pos": [40, 17], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 88, "pos": [25, 17], "facing": "north", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 89, "pos": [10, 27], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 89, "pos": [24, 17], "facing": "west", "type": "move", "id": "otto", "state": "idle", "name": "Otto"}
+{"tick": 90, "pos": [10, 28], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 90, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [7, 7], "facing": "east", "id": "bram", "state": "idle", "name": "Bram"}, {"pos": [10, 28], "facing": "south", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [40, 17], "facing": "south", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [24, 6], "facing": "south", "id": "mara", "state": "idle", "name": "Mara"}, {"pos": [24, 17], "facing": "west", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [33, 8], "facing": "west", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"tick": 91, "pos": [7, 6], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 91, "pos": [33, 9], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 93, "pos": [7, 5], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 93, "pos": [41, 17], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 93, "pos": [25, 17], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 93, "pos": [33, 10], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 94, "pos": [11, 28], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 94, "pos": [41, 16], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 94, "pos": [26, 17], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 94, "pos": [34, 10], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 95, "pos": [40, 16], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 95, "pos": [24, 5], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 95, "pos": [35, 10], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 96, "pos": [12, 28], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 96, "pos": [40, 15], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 96, "pos": [23, 5], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 96, "pos": [34, 10], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 97, "pos": [12, 29], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 97, "pos": [24, 5], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 97, "pos": [26, 18], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 98, "pos": [7, 4], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 98, "pos": [40, 14], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 98, "pos": [24, 4], "facing": "north", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 98, "pos": [35, 10], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 99, "pos": [8, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 99, "pos": [13, 29], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 99, "pos": [24, 5], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 99, "pos": [26, 19], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 100, "pos": [7, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 100, "pos": [12, 29], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 100, "pos": [23, 5], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 100, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [7, 4], "facing": "west", "id": "bram", "state": "wandering", "name": "Bram"}, {"pos": [12, 29], "facing": "west", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [40, 14], "facing": "north", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [23, 5], "facing": "west", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [26, 19], "facing": "south", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [35, 10], "facing": "east", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"action": "wander", "tick": 100, "reason": "stub wander", "type": "intent", "route": "idle", "id": "bram", "name": "Bram"}
+{"tick": 100, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 101, "pos": [41, 14], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 101, "pos": [24, 5], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 101, "pos": [25, 19], "facing": "west", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"action": "goto", "tick": 101, "place": "garden", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "cass", "name": "Cass"}
+{"tick": 101, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 102, "pos": [12, 28], "facing": "north", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 102, "pos": [42, 14], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 102, "pos": [25, 5], "facing": "east", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 102, "pos": [26, 19], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"action": "stay", "tick": 102, "reason": "stub stay", "type": "intent", "route": "idle", "id": "isolde", "name": "Isolde"}
+{"tick": 102, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 103, "pos": [11, 28], "facing": "west", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 103, "pos": [41, 14], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 103, "pos": [35, 11], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "wander", "tick": 103, "reason": "stub wander", "type": "intent", "route": "idle", "id": "mara", "name": "Mara"}
+{"tick": 103, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 104, "pos": [8, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 104, "pos": [10, 28], "facing": "west", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 104, "pos": [41, 13], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 104, "pos": [27, 19], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 104, "pos": [35, 12], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "goto", "tick": 104, "place": "square", "reason": "stub goto", "type": "intent", "route": "set-target", "id": "otto", "name": "Otto"}
+{"tick": 104, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 105, "pos": [9, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 105, "pos": [10, 27], "facing": "north", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 105, "pos": [25, 6], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 105, "pos": [26, 19], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 105, "pos": [36, 12], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"action": "stay", "tick": 105, "reason": "stub stay", "type": "intent", "route": "idle", "id": "theo", "name": "Theo"}
+{"tick": 105, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 106, "pos": [9, 27], "facing": "west", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 106, "pos": [26, 18], "facing": "north", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 107, "pos": [8, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 107, "pos": [9, 26], "facing": "north", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 107, "pos": [25, 18], "facing": "west", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 107, "pos": [36, 11], "facing": "north", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 108, "pos": [9, 25], "facing": "north", "type": "move", "id": "cass", "state": "moving", "name": "Cass"}
+{"tick": 108, "pos": [40, 13], "facing": "west", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 108, "pos": [25, 17], "facing": "north", "type": "move", "id": "otto", "state": "moving", "name": "Otto"}
+{"tick": 109, "pos": [8, 5], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 109, "pos": [8, 25], "facing": "west", "type": "move", "id": "cass", "state": "idle", "name": "Cass"}
+{"tick": 109, "pos": [24, 17], "facing": "west", "type": "move", "id": "otto", "state": "idle", "name": "Otto"}
+{"tick": 109, "pos": [36, 12], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 110, "pos": [40, 12], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 110, "pos": [24, 6], "facing": "west", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 110, "pos": [24, 18], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 110, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [8, 5], "facing": "south", "id": "bram", "state": "idle", "name": "Bram"}, {"pos": [8, 25], "facing": "west", "id": "cass", "state": "idle", "name": "Cass"}, {"pos": [40, 12], "facing": "north", "id": "isolde", "state": "wandering", "name": "Isolde"}, {"pos": [24, 6], "facing": "west", "id": "mara", "state": "wandering", "name": "Mara"}, {"pos": [24, 18], "facing": "south", "id": "otto", "state": "wandering", "name": "Otto"}, {"pos": [36, 12], "facing": "south", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"tick": 111, "pos": [40, 11], "facing": "north", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 111, "pos": [24, 19], "facing": "south", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 111, "pos": [36, 13], "facing": "south", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 112, "pos": [7, 5], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 112, "pos": [9, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 112, "pos": [41, 11], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 112, "pos": [37, 13], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 113, "pos": [42, 11], "facing": "east", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 113, "pos": [23, 19], "facing": "west", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 113, "pos": [38, 13], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 114, "pos": [10, 25], "facing": "east", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 114, "pos": [39, 13], "facing": "east", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"transcript": [{"text": "Fine day on the tiles, neighbor.", "speaker": "Isolde"}, {"text": "That it is. Mind the budget!", "speaker": "Theo"}], "tick": 114, "b": "Theo", "place": "street", "a": "Isolde", "type": "conversation", "summary": "Isolde and Theo swapped stub pleasantries."}
+{"tick": 114, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 115, "pos": [7, 4], "facing": "north", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 116, "pos": [6, 4], "facing": "west", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 116, "pos": [10, 26], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 117, "pos": [24, 19], "facing": "east", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 117, "pos": [38, 13], "facing": "west", "type": "move", "id": "theo", "state": "wandering", "name": "Theo"}
+{"tick": 118, "pos": [9, 26], "facing": "west", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 118, "pos": [42, 12], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 118, "pos": [24, 7], "facing": "south", "type": "move", "id": "mara", "state": "wandering", "name": "Mara"}
+{"tick": 119, "pos": [7, 4], "facing": "east", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 119, "pos": [42, 13], "facing": "south", "type": "move", "id": "isolde", "state": "wandering", "name": "Isolde"}
+{"tick": 119, "pos": [23, 19], "facing": "west", "type": "move", "id": "otto", "state": "wandering", "name": "Otto"}
+{"tick": 120, "pos": [7, 5], "facing": "south", "type": "move", "id": "bram", "state": "wandering", "name": "Bram"}
+{"tick": 120, "pos": [9, 27], "facing": "south", "type": "move", "id": "cass", "state": "wandering", "name": "Cass"}
+{"tick": 120, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [7, 5], "facing": "south", "id": "bram", "state": "wandering", "name": "Bram"}, {"pos": [9, 27], "facing": "south", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [42, 13], "facing": "south", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [24, 7], "facing": "south", "id": "mara", "state": "idle", "name": "Mara"}, {"pos": [23, 19], "facing": "west", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [38, 13], "facing": "west", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": null}
+{"action": "wander", "tick": 120, "reason": "stub wander", "type": "intent", "route": "idle", "id": "bram", "name": "Bram"}
+{"tick": 120, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"text": "Stub chronicle (15 events noted).", "tick": 120, "type": "chronicle"}
+{"tick": 120, "total-usd": 0.0, "type": "spend", "calls": 0}
+{"tick": 120, "type": "tick-state", "active-conversation": null, "agents": [{"pos": [7, 5], "facing": "south", "id": "bram", "state": "wandering", "name": "Bram"}, {"pos": [9, 27], "facing": "south", "id": "cass", "state": "wandering", "name": "Cass"}, {"pos": [42, 13], "facing": "south", "id": "isolde", "state": "idle", "name": "Isolde"}, {"pos": [24, 7], "facing": "south", "id": "mara", "state": "idle", "name": "Mara"}, {"pos": [23, 19], "facing": "west", "id": "otto", "state": "idle", "name": "Otto"}, {"pos": [38, 13], "facing": "west", "id": "theo", "state": "idle", "name": "Theo"}], "spend": {"total-usd": 0.0, "calls": 0}, "chronicle": "Stub chronicle (15 events noted)."}

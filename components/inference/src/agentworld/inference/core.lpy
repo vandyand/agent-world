@@ -1,0 +1,105 @@
+(ns agentworld.inference.core
+  "OpenRouter inference client (openai SDK over the OpenAI wire protocol).
+
+  Exposes:
+    model-registry — default model + $/Mtok price table (used by the cost
+      guard in agentworld.inference.cost).
+    (make-client opts) — openai.OpenAI client bound to OpenRouter.
+    (complete! client opts) — one-shot chat completion returning
+      {:content str :usage {:input-tokens n :output-tokens n :cost usd?}}.
+
+  Every request sets an explicit max_tokens (bounded cost estimates) and
+  clients are constructed with max_retries 1 (no silent retry spend).
+  extra_body {\"usage\" {\"include\" true}} asks OpenRouter to return its
+  authoritative USD cost in the usage block (Phase 0 finding)."
+  (:import os openai))
+
+(def openrouter-base-url "https://openrouter.ai/api/v1")
+
+(def default-max-tokens 512)
+
+(def model-registry
+  "Default + free-tier models and price table, USD per million tokens
+  (verified 2026-07). The :free variant is heavily rate-limited by
+  OpenRouter (20 req/min, 50-1000 req/day) — fine for short runs, too
+  throttled for a busy world."
+  {:default "google/gemini-2.5-flash-lite"
+   :free "meta-llama/llama-3.3-70b-instruct:free"
+   :prices {"google/gemini-2.5-flash-lite"
+            {:input-usd-per-mtok 0.10 :output-usd-per-mtok 0.40}
+            "mistralai/mistral-small-3.2-24b-instruct"
+            {:input-usd-per-mtok 0.075 :output-usd-per-mtok 0.20}
+            "meta-llama/llama-3.3-70b-instruct:free"
+            {:input-usd-per-mtok 0.0 :output-usd-per-mtok 0.0}}})
+
+(defn current-model
+  "Resolve the model for live calls from env AGENT_WORLD_MODEL:
+  unset → registry :default; \"free\" → registry :free; any other value →
+  used verbatim as an OpenRouter model id (must have a price entry to
+  pass the cost guard)."
+  []
+  (let [v (os/getenv "AGENT_WORLD_MODEL")]
+    (cond
+      (nil? v) (:default model-registry)
+      (= v "free") (:free model-registry)
+      :else v)))
+
+(defn make-client
+  "Build an openai.OpenAI client bound to OpenRouter.
+
+  opts (all optional): :api-key (default env OPENROUTER_API_KEY),
+  :base-url (default OpenRouter), :max-retries (default 1 — retries are
+  limited so the cost guard's worst-case reservation stays honest).
+  Throws ex-info {:error :missing-api-key} when no key is available."
+  ([] (make-client {}))
+  ([opts]
+   (let [api-key (or (:api-key opts) (os/getenv "OPENROUTER_API_KEY"))]
+     (when-not api-key
+       (throw (ex-info "OPENROUTER_API_KEY not set and no :api-key given"
+                       {:error :missing-api-key})))
+     (openai/OpenAI **
+                    :base_url (or (:base-url opts) openrouter-base-url)
+                    :api_key api-key
+                    :max_retries (or (:max-retries opts) 1)))))
+
+(defn- ->py-messages
+  "Convert a system string + seq of {:role :content} maps into the python
+  list-of-dicts shape the openai SDK expects."
+  [system messages]
+  (python/list
+   (map (fn [{:keys [role content]}]
+          #py {"role" (if (keyword? role) (name role) (str role))
+               "content" (str content)})
+        (if system
+          (cons {:role "system" :content system} messages)
+          messages))))
+
+(defn complete!
+  "One-shot chat completion against OpenRouter.
+
+  opts: {:model str? :system str? :messages [{:role kw|str :content str}]
+         :max-tokens int?}
+  Model defaults to (:default model-registry); max-tokens defaults to
+  default-max-tokens and is ALWAYS sent explicitly.
+
+  Returns {:content str
+           :usage {:input-tokens n :output-tokens n :cost usd-or-nil}}
+  where :cost is OpenRouter's authoritative USD cost when returned
+  (requested via extra_body usage include)."
+  [client opts]
+  (let [{:keys [model system messages max-tokens]} opts
+        model (or model (:default model-registry))
+        max-tokens (or max-tokens default-max-tokens)
+        resp (.create (.-completions (.-chat client))
+                      **
+                      :model model
+                      :messages (->py-messages system messages)
+                      :max_tokens max-tokens
+                      :extra_body #py {"usage" #py {"include" true}})
+        choice (first (.-choices resp))
+        usage (.-usage resp)
+        udict (if (nil? usage) #py {} (.model_dump usage))]
+    {:content (.-content (.-message choice))
+     :usage {:input-tokens (.get udict "prompt_tokens")
+             :output-tokens (.get udict "completion_tokens")
+             :cost (.get udict "cost")}}))

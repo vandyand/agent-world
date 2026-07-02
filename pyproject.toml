@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-world"
+version = "0.1.0"
+description = "LLM agent town: Basilisp polylith driving LangGraph, AutoGen, and CrewAI over OpenRouter."
+readme = "README.md"
+requires-python = ">=3.12"
+# Pins from Phase 0 resolver output (specs/agent-world-demo/implementation-plan.md,
+# "Phase 0 Findings" — verified clean resolve, all six integration smokes passed).
+dependencies = [
+  "basilisp==0.5.1",
+  "pytest>=8.0",
+  "openai==2.44.0",
+  "pydantic==2.12.5",
+  "langgraph==1.2.7",
+  "langchain-openai==1.3.3",
+  "autogen-agentchat==0.7.5",
+  "autogen-ext[openai]==0.7.5",
+  "crewai==1.15.1",
+  "pygame-ce==2.5.7",
+  "fastapi==0.139.0",
+  "uvicorn==0.49.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+# Every brick src dir must be listed here (basilisp test resolves namespaces
+# via pytest's pythonpath). Append new bricks as phases land.
+pythonpath = [
+  "tests",
+  ".",
+  "components/inference/src",
+  "components/world/src",
+  "components/persona/src",
+  "components/memory/src",
+  "components/cognition/src",
+  "components/conversation/src",
+  "components/chronicle/src",
+  "components/recorder/src",
+  "components/engine/src",
+  "bases/headless/src",
+  "bases/server/src",
+]
+testpaths = [
+  "tests",
+]
+
+[tool.setuptools]
+include-package-data = true

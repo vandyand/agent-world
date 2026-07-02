@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.lpyc
+
+# Basilisp nREPL state
+.nrepl-port
+.nrepl-pythonpath
+
+# Generated replay files from headless runs.
+# Exceptions: the bundled viewer replay fixtures ship with the repo.
+replays/*.jsonl
+!bases/server/resources/public/replays/demo.jsonl
+!bases/server/resources/public/replays/smoke.jsonl
+!bases/server/resources/public/replays/malicious.jsonl
+
+# Static export bundle (built by scripts/build_static.sh, deployed to Vercel)
+dist/
+.vercel/

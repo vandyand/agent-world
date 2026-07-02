@@ -73,8 +73,10 @@ Python bytecode — you get immutable data, REPL-driven development, and
 Lisp macros while calling `langgraph`, `autogen`, and `crewai` natively
 through Python interop (no bridges, no subprocesses).
 [Polylith](https://polylith.gitbook.io/) organizes the code as small
-single-purpose "bricks": components only talk to each other through
-`interface.lpy` namespaces, and bases are the only entry points. The
+single-purpose "bricks": components expose plain
+`agentworld.<brick>.<ns>` namespaces (this repo's convention — no
+separate `interface.lpy` indirection), and bases are the only entry
+points. The
 discipline is enforced by two gate scripts (`scripts/compile_check.py`,
 `scripts/check_deps.py`) since the python-polylith CLI can't parse `.lpy`.
 
@@ -82,6 +84,9 @@ discipline is enforced by two gate scripts (`scripts/compile_check.py`,
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e .
+# put the polylith brick dirs on sys.path (one-time; required for `basilisp run -n`):
+SITE=$(.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
+{ for d in components/*/src bases/*/src; do echo "$PWD/$d"; done; } > "$SITE/agentworld-bricks.pth"
 export OPENROUTER_API_KEY=sk-or-...   # only needed for live LLM modes
 
 # 1) LIVE viewer — real LangGraph/AutoGen/CrewAI calls, ~$0.01 per 10 min:

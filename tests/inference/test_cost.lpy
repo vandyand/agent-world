@@ -102,3 +102,27 @@
         (is (= #{:ok :budget-exceeded} (set rs)))
         ;; exactly one reservation's estimate is held
         (is (< 0.0103 (:reserved-usd snap) 0.0105))))))
+
+(deftest settle-missing-usage-charges-reservation
+  ;; A framework returning NO usage metadata must be charged its full
+  ;; reservation, never $0 (cap-bypass guard).
+  (cost/reset-spend!)
+  (let [rsv (cost/reserve! "google/gemini-2.5-flash-lite"
+                           {:prompt-chars 4000 :max-output-tokens 500})
+        est (:estimate-usd rsv)
+        usd (cost/settle! (:id rsv) "google/gemini-2.5-flash-lite" {})
+        snap (cost/spend-snapshot)]
+    (is (pos? est))
+    (is (= usd est))
+    (is (= (:total-usd snap) est))
+    (is (= (:reserved-usd snap) 0.0))))
+
+(deftest settle-free-model-zero-cost-trusted
+  ;; :cost 0 from OpenRouter (free models) is authoritative — recorded as 0.
+  (cost/reset-spend!)
+  (let [rsv (cost/reserve! "meta-llama/llama-3.3-70b-instruct:free"
+                           {:prompt-chars 4000 :max-output-tokens 500})
+        usd (cost/settle! (:id rsv) "meta-llama/llama-3.3-70b-instruct:free"
+                          {:input-tokens 100 :output-tokens 50 :cost 0})]
+    (is (= usd 0.0))
+    (is (= (:total-usd (cost/spend-snapshot)) 0.0))))

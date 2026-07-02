@@ -154,7 +154,7 @@
   "Live decision LLM: reserve! worst case -> complete! -> settle! actuals.
   release! on failure so aborted calls never pin the budget."
   [{:keys [system prompt]}]
-  (let [model (:default inf/model-registry)
+  (let [model (inf/current-model)
         rsv (cost/reserve! model {:prompt-chars (+ (count (str system))
                                                    (count (str prompt)))
                                   :max-output-tokens decide-max-tokens})]

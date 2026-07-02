@@ -127,10 +127,25 @@
 
 (defn settle!
   "Reconcile actual usage into :spent-usd and release the reservation.
-  Prefers usage's authoritative :cost when present, else the price-table
-  token estimate. Returns the USD amount recorded."
+
+  USD resolution, most→least authoritative:
+  1. usage's :cost field (OpenRouter authoritative — trusted even at 0,
+     which is correct for :free models)
+  2. price-table estimate from token counts, when any tokens are present
+  3. the reservation's own worst-case estimate — a framework that
+     returned NO usage metadata (missing/zeroed) is charged its full
+     reservation rather than $0, so absent metadata can never bypass the
+     fail-before-spend cap.
+  Returns the USD amount recorded."
   [reservation-id model usage]
-  (let [usd (usage-usd model usage)]
+  (let [have-cost? (contains? usage :cost)
+        cost-val (:cost usage)
+        tokens (+ (or (:input-tokens usage) 0) (or (:output-tokens usage) 0))
+        reserved (get-in @spend-state [:reservations reservation-id] 0.0)
+        usd (cond
+              (and have-cost? (some? cost-val)) (python/float cost-val)
+              (pos? tokens) (usage-usd model (dissoc usage :cost))
+              :else reserved)]
     (swap! spend-state
            (fn [st]
              (-> st

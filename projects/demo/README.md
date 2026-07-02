@@ -4,6 +4,10 @@ How to run the Emberwick demo: live mode (real sim + viewer) and replay
 mode (zero-backend playback of a recorded run). All commands from the repo
 root (`/home/kingjames/vandykeportfolio/agent-world`).
 
+> **One-time setup for `basilisp run -n`:** generate the brick `.pth` file so
+> the polylith src dirs are importable (see the root README quick start or
+> `development/README.md`).
+
 ## Live mode
 
 ```bash

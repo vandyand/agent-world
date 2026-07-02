@@ -97,7 +97,7 @@
   context: {:place kw|str}. Returns
   {:transcript [{:speaker display-name :text str} ...] :summary str}."
   [persona-a persona-b context]
-  (let [model (:default inf/model-registry)
+  (let [model (inf/current-model)
         sys-a (conversation-system persona-a persona-b context)
         sys-b (conversation-system persona-b persona-a context)
         task (str (:name persona-a) " and " (:name persona-b)

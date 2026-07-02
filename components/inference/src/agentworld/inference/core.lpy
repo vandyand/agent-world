@@ -19,12 +19,30 @@
 (def default-max-tokens 512)
 
 (def model-registry
-  "Default model + price table, USD per million tokens (verified 2026-07)."
+  "Default + free-tier models and price table, USD per million tokens
+  (verified 2026-07). The :free variant is heavily rate-limited by
+  OpenRouter (20 req/min, 50-1000 req/day) — fine for short runs, too
+  throttled for a busy world."
   {:default "google/gemini-2.5-flash-lite"
+   :free "meta-llama/llama-3.3-70b-instruct:free"
    :prices {"google/gemini-2.5-flash-lite"
             {:input-usd-per-mtok 0.10 :output-usd-per-mtok 0.40}
             "mistralai/mistral-small-3.2-24b-instruct"
-            {:input-usd-per-mtok 0.075 :output-usd-per-mtok 0.20}}})
+            {:input-usd-per-mtok 0.075 :output-usd-per-mtok 0.20}
+            "meta-llama/llama-3.3-70b-instruct:free"
+            {:input-usd-per-mtok 0.0 :output-usd-per-mtok 0.0}}})
+
+(defn current-model
+  "Resolve the model for live calls from env AGENT_WORLD_MODEL:
+  unset → registry :default; \"free\" → registry :free; any other value →
+  used verbatim as an OpenRouter model id (must have a price entry to
+  pass the cost guard)."
+  []
+  (let [v (os/getenv "AGENT_WORLD_MODEL")]
+    (cond
+      (nil? v) (:default model-registry)
+      (= v "free") (:free model-registry)
+      :else v)))
 
 (defn make-client
   "Build an openai.OpenAI client bound to OpenRouter.

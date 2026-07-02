@@ -18,7 +18,7 @@ Purpose: a flagship portfolio demo targeting Upwork jobs that name LangGraph/Aut
 - Headless sim engine in Basilisp: tile world, personas, deterministic locomotion, LLM-decided intents, proximity-triggered dialogues, chronicle narration.
 - Browser viewer (plain HTML/canvas/JS, no build step): pixel-art rendering, speech bubbles, agent inspector, chronicle panel, spend HUD.
 - **Replay-first deployment**: headless run records JSONL; viewer plays the bundled replay statically on Vercel (always works publicly). Live WebSocket mode for local/interview runs.
-- Cost guard: fail-before-spend cap (`AGENT_WORLD_MAX_SPEND_USD`, default $1.00); full 10-sim-minute run < $0.25.
+- Cost guard: true fail-before-spend — preflight cost estimate (prompt size + bounded `max_tokens`) checked against the cap (`AGENT_WORLD_MAX_SPEND_USD`, default $1.00) BEFORE each call, actuals reconciled after; canonical 10-sim-minute run budgeted ≤ ~250 LLM calls ≈ $0.05–0.10, claimed < $0.25.
 - Polylith discipline enforced by `scripts/compile_check.py` + `scripts/check_deps.py` (conventions from `stevetrading-basilisp`).
 
 ## Non-Goals

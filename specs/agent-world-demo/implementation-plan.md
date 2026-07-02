@@ -13,7 +13,7 @@ Top-level namespace: `agentworld`. Python: 3.12 venv at `.venv`. All work in `/h
 
 ## Phase 0: REPL Spike — prove the risky seams
 
-Create `.venv`, install the full dependency stack, and empirically verify every integration the plan depends on. **No production code.** Findings recorded back into this file under "Phase 0 Findings".
+Create `.venv`, install the full dependency stack, and empirically verify every integration the plan depends on. **No production code** — all spike scripts live in `/tmp/`, never in the repo. Findings recorded back into this file under "Phase 0 Findings".
 
 - [ ] `python3 -m venv .venv && .venv/bin/pip install basilisp==0.5.1 pygame-ce langgraph langchain-openai autogen-agentchat "autogen-ext[openai]" crewai fastapi "uvicorn[standard]" websockets pytest` — record the resolver's chosen versions of `openai` and `pydantic`; confirm no conflict errors
 - [ ] Smoke 1 (basilisp↔langgraph): from a throwaway `.lpy` run via `.venv/bin/basilisp run`, build a 3-node StateGraph with a conditional edge using basilisp fns as nodes; `.invoke` returns routed state
@@ -21,7 +21,7 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 - [ ] Smoke 3 (autogen↔OpenRouter, **the risk gate**): two AssistantAgents + RoundRobinGroupChat + MaxMessageTermination(6) via OpenAIChatCompletionClient(base_url=openrouter, model_info=ModelInfo(...)); run from basilisp via `asyncio/run`. PASS → one-venv plan stands. FAIL → record exact error; pivot conversation component to the pre-designed isolated-worker fallback (separate venv, stdio JSON) and update Phase 3 tasks before proceeding
 - [ ] Smoke 4 (crewai↔OpenRouter): 1-agent 1-task Crew via `LLM(model="openrouter/google/gemini-2.5-flash-lite", base_url=..., api_key=...)`; kickoff returns text; record how usage/cost metadata is exposed (crewai hides raw usage — if unavailable, note that chronicle cost tracking must estimate from character counts or litellm callbacks)
 - [ ] Smoke 5 (pygame-ce headless): `SDL_VIDEODRIVER=dummy` + `pygame.init()` + Rect collision + `pygame.sprite` import — no display errors
-- [ ] Smoke 6 (nREPL): copy/adapt `scripts/nrepl.sh` from stevetrading-basilisp; start `basilisp nrepl-server`; verify `clj-nrepl-eval -p <port> "(+ 1 2)"` → 3
+- [ ] Smoke 6 (nREPL): start `.venv/bin/basilisp nrepl-server --port 37888` directly (no repo script yet — `scripts/nrepl.sh` is a Phase 1 deliverable); verify `clj-nrepl-eval -p 37888 "(+ 1 2)"` → 3
 - [ ] Record Phase 0 Findings section in this file: versions, autogen verdict, usage-metadata shapes per framework, any plan edits required
 
 ### Verification (Phase 0)
@@ -33,13 +33,13 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 - [ ] Write `pyproject.toml` (project metadata; deps pinned from Phase 0 resolver output; `[tool.pytest.ini_options] pythonpath` listing `tests`, `.`, every brick src dir), empty `basilisp.edn` (`{}`), `.gitignore` (`.venv/`, `__pycache__/`, `*.lpyc`, `.nrepl-port`, `.nrepl-pythonpath`, `replays/*.jsonl` except bundled demo replay)
 - [ ] `scripts/nrepl.sh`, `scripts/test.sh`, `scripts/compile_check.py`, `scripts/check_deps.py` — adapted from stevetrading-basilisp (check_deps rule: `components/*` may not require `bases/*`; `engine` may require all components; pure components (`world`, `persona`, `memory`, `recorder`) may not require LLM components (`inference`, `cognition`, `conversation`, `chronicle`))
 - [ ] `components/inference/src/agentworld/inference/core.lpy`: `(make-client opts)` → openai-SDK client bound to OpenRouter base-url + key from env; `(complete! client {:model :system :messages})` → `{:content :usage {:input-tokens :output-tokens}}`; model registry map `{:default "google/gemini-2.5-flash-lite" :prices {...}}`
-- [ ] `components/inference/src/agentworld/inference/cost.lpy`: spend atom, `(record-usage! model usage)` → running USD total, `(check-budget!)` throws `ex-info :budget-exceeded` when total ≥ cap (env `AGENT_WORLD_MAX_SPEND_USD` default 1.00), `(spend-snapshot)` → `{:total-usd :calls :by-model}`
+- [ ] `components/inference/src/agentworld/inference/cost.lpy`: spend atom, **fail-before-spend preflight**: `(preflight! model {:prompt-chars N :max-output-tokens M})` estimates cost (chars/4 input tokens + M output tokens at registry prices) and throws `ex-info :budget-exceeded` if `spent + estimate > cap` BEFORE the API call; `(record-usage! model usage)` reconciles actual usage into the running USD total after the call; cap from env `AGENT_WORLD_MAX_SPEND_USD` default 1.00; `(spend-snapshot)` → `{:total-usd :calls :by-model}`. All `complete!` calls set an explicit `max_tokens` so the preflight bound is real
 - [ ] `tests/inference/test_cost.lpy`: unit tests for cost math + cap trip (no network)
 - [ ] `development/README.md`: REPL workflow (start nrepl.sh, clj-nrepl-eval usage, reload pattern)
 
 ### Verification (Phase 1)
 - nREPL: `(require '[agentworld.inference.cost :as cost]) (cost/record-usage! "google/gemini-2.5-flash-lite" {:input-tokens 1000000 :output-tokens 1000000})` → `0.5` (=$0.10+$0.40); `(cost/spend-snapshot)` shape matches
-- nREPL: budget cap: with cap env stubbed to 0.1, `(cost/check-budget!)` throws ex-info with `:budget-exceeded`
+- nREPL: budget cap: with cap stubbed to 0.1 and 0.09 already spent, `(cost/preflight! "google/gemini-2.5-flash-lite" {:prompt-chars 400000 :max-output-tokens 1000})` throws ex-info with `:budget-exceeded`; small preflight under remaining budget does not throw
 - Shell: `.venv/bin/python scripts/compile_check.py` exits 0; `.venv/bin/python scripts/check_deps.py` exits 0; `scripts/test.sh tests/inference` passes
 
 ## Phase 2: World, persona, memory (pure sim — no LLM)
@@ -73,8 +73,9 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 
 ## Phase 4: Engine tick loop, recorder, headless base
 
-- [ ] `components/recorder/src/agentworld/recorder/core.lpy`: event types (`:tick-state` keyframes every N ticks, `:move`, `:intent`, `:conversation`, `:chronicle`, `:spend`); JSONL writer `(open-recorder path)` / `(emit! rec event)`; reader `(read-replay path)` → lazy events; replay files carry NO api keys/prompts — transcripts and positions only
-- [ ] `components/engine/src/agentworld/engine/core.lpy`: `(make-sim {:personas :map :seed :decision-cadence 8 :chronicle-cadence 120 :proximity-r 3 :conversation-cooldown 90})`; `(tick! sim)` — advance movement every tick; stagger agent decisions round-robin at cadence (LLM calls on a worker thread pool so ticks don't block; intents applied when ready); proximity check → at most one active conversation world-wide (queue/cooldown others); chronicle at cadence; every state change emits recorder events + updates a `state-atom` snapshot `{:tick :agents :active-conversation :chronicle :spend}`
+- [ ] `components/recorder/src/agentworld/recorder/core.lpy`: event types (`:tick-state` keyframes every N ticks, `:move`, `:intent`, `:conversation`, `:chronicle`, `:spend`); JSONL writer `(open-recorder path)` / `(emit! rec event)`; reader `(read-replay path)` → lazy events; **sanitizer at the emit boundary**: events pass through `(sanitize event)` which whitelists fields (positions, names, transcripts, chronicle text, spend totals) — raw prompts, system messages, request payloads, and anything matching key-like patterns are structurally excluded
+- [ ] `scripts/check_public_hygiene.py`: scans any given files/dirs (replay JSONL, `bases/server/resources/public/`, `dist/`) for secret patterns (`sk-or-`, `OPENROUTER_API_KEY` values, `api_key`) and raw-prompt fields (`system_prompt`, `messages`); exits non-zero on hit; wired into Phase 6 gates
+- [ ] `components/engine/src/agentworld/engine/core.lpy`: `(make-sim {:personas :map :seed :decision-cadence 20 :chronicle-cadence 120 :proximity-r 3 :conversation-cooldown 90})`; **canonical time/call budget: 1 sim-minute = 60 ticks; live mode ticks at ~150ms wall-clock; each agent gets ONE decision LLM call every `decision-cadence` (20) ticks, staggered round-robin — for the canonical 10-sim-minute 6-agent run: 600 ticks → ≤180 decision calls + ≤10 conversations (≤6 msgs each) + 5 chronicle runs ≈ ≤250 LLM calls, expected ≈ $0.05–0.10 at default prices (hence the <$0.25 claim)**; `(tick! sim)` — advance movement every tick; LLM calls on a worker thread pool so ticks don't block; intents applied when ready; proximity check → at most one active conversation world-wide (queue/cooldown others); chronicle at cadence; every state change emits recorder events + updates a `state-atom` snapshot `{:tick :agents :active-conversation :chronicle :spend}`
 - [ ] `bases/headless/src/agentworld/base/headless.lpy`: CLI (`basilisp run -n agentworld.base.headless -- --minutes 10 --out replays/demo.jsonl --seed 42`); runs sim at max speed (no wall-clock sleep), prints progress + final spend; graceful stop on budget cap
 - [ ] `tests/engine/test_tick.lpy`: engine with ALL LLM components stubbed (deterministic intents/dialogue) — N ticks produce valid state, conversations trigger on proximity, cooldowns respected, recorder file well-formed JSONL
 
@@ -85,14 +86,15 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 
 ## Phase 5: Server base + browser viewer (live + replay)
 
-- [ ] `bases/server/src/agentworld/base/server.lpy`: FastAPI app via interop — `GET /` serves viewer; `/assets/*` static; `WS /ws/state` pushes state-atom snapshots (~10 Hz diff or full small snapshot) + event feed; `POST /api/control` `{action: start|pause|speed}`; runs uvicorn programmatically; sim runs in background thread at wall-clock pace (tick ~150ms)
+- [ ] `bases/server/src/agentworld/base/server.lpy`: FastAPI app via interop — `GET /` serves viewer; `/assets/*` static; `GET /api/health` → `{"ok": true, "tick": N}`; `WS /ws/state` pushes state-atom snapshots (~10 Hz diff or full small snapshot) + event feed; `POST /api/control` `{action: start|pause|speed}`; runs uvicorn programmatically; sim runs in background thread at wall-clock pace (tick ~150ms)
+- [ ] Phase 5 replay fixture: generate `bases/server/resources/public/replays/smoke.jsonl` from a stubbed (no-LLM) 2-sim-minute headless run — replay-mode verification in this phase uses `?replay=/replays/smoke.jsonl`; the canonical live-LLM `demo.jsonl` is a Phase 6 artifact
 - [ ] Viewer `bases/server/resources/public/`: `index.html`, `viewer.js`, `style.css` — canvas tile rendering (Kenney CC0 tiles fetched to `assets/`, fallback colored-rect), agent sprites w/ name labels, speech bubbles during active conversation, right panel: agent inspector (click → persona/intent/memories), Town Chronicle panel, event feed, spend HUD; **mode switch**: `?replay=<url>` param loads JSONL replay and plays it with the same renderer + timeline scrubber/speed control; no build step, ES modules ok
 - [ ] Playwright visual verification during dev (`mcp__playwright__*` or ascolais browser): screenshot loop against `http://localhost:8700` until the world renders correctly (tiles visible, 6 agents moving, bubble appears during conversation)
 - [ ] `projects/demo/README.md`: how to run live mode; how replay build works
 
 ### Verification (Phase 5)
 - Shell: server starts; `curl -s localhost:8700/` returns viewer HTML; `curl -s localhost:8700/api/health` → `{"ok":true,"tick":N}` with N increasing between two calls
-- Playwright: screenshot shows rendered tile map with 6 labeled agents; a second screenshot ≥30s later shows agents at different positions; during a conversation a speech bubble is visible; replay mode (`?replay=/replays/demo.jsonl`) renders and scrubs
+- Playwright: screenshot shows rendered tile map with 6 labeled agents; a second screenshot ≥30s later shows agents at different positions; during a conversation a speech bubble is visible; replay mode (`?replay=/replays/smoke.jsonl`) renders and scrubs
 - nREPL: `(server/state-snapshot)` shape `{:tick :agents :chronicle :spend}` correct
 
 ## Phase 6: Full run, replay artifact, deployment, docs
@@ -101,7 +103,7 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 - [ ] Static export: `scripts/build_static.sh` → `dist/` containing viewer + demo replay wired as default (`index.html` auto-loads replay when no WS available); deploy `dist/` to Vercel as project `agent-world` (match sibling-demo Vercel setup: `vercel --prod` from dist or vercel.json static config); verify live URL
 - [ ] Root `README.md`: hero screenshot/GIF, architecture diagram (ASCII ok), the LangGraph/AutoGen/CrewAI division-of-labor story, basilisp polylith explanation, quick start (live + replay), cost model, Kenney attribution if used, note on Microsoft Agent Framework convergence awareness
 - [ ] Screenshot(s) for the portfolio site captured via Playwright and saved to `docs/screenshots/`
-- [ ] Final gates: `scripts/test.sh` (full), compile_check, check_deps all green
+- [ ] Final gates: `scripts/test.sh` (full), compile_check, check_deps, and `scripts/check_public_hygiene.py dist/ bases/server/resources/public/` all green
 
 ### Verification (Phase 6)
 - Shell: `test -s dist/replays/demo.jsonl && du -h dist/replays/demo.jsonl` under budget; full test suite green

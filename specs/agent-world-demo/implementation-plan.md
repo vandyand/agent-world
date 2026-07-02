@@ -15,14 +15,31 @@ Top-level namespace: `agentworld`. Python: 3.12 venv at `.venv`. All work in `/h
 
 Create `.venv`, install the full dependency stack, and empirically verify every integration the plan depends on. **No production code** — all spike scripts live in `/tmp/`, never in the repo. Findings recorded back into this file under "Phase 0 Findings".
 
-- [ ] `python3 -m venv .venv && .venv/bin/pip install basilisp==0.5.1 pygame-ce langgraph langchain-openai autogen-agentchat "autogen-ext[openai]" crewai fastapi "uvicorn[standard]" websockets pytest` — record the resolver's chosen versions of `openai` and `pydantic`; confirm no conflict errors
-- [ ] Smoke 1 (basilisp↔langgraph): from a throwaway `.lpy` run via `.venv/bin/basilisp run`, build a 3-node StateGraph with a conditional edge using basilisp fns as nodes; `.invoke` returns routed state
-- [ ] Smoke 2 (langgraph↔OpenRouter): ChatOpenAI(base_url=openrouter, model=`google/gemini-2.5-flash-lite`) one-shot completion from inside the graph; record actual usage/token fields available on the response
-- [ ] Smoke 3 (autogen↔OpenRouter, **the risk gate**): two AssistantAgents + RoundRobinGroupChat + MaxMessageTermination(6) via OpenAIChatCompletionClient(base_url=openrouter, model_info=ModelInfo(...)); run from basilisp via `asyncio/run`. PASS → one-venv plan stands. FAIL → record exact error; pivot conversation component to the pre-designed isolated-worker fallback (separate venv, stdio JSON) and update Phase 3 tasks before proceeding
-- [ ] Smoke 4 (crewai↔OpenRouter): 1-agent 1-task Crew via `LLM(model="openrouter/google/gemini-2.5-flash-lite", base_url=..., api_key=...)`; kickoff returns text; record how usage/cost metadata is exposed (crewai hides raw usage — if unavailable, note that chronicle cost tracking must estimate from character counts or litellm callbacks)
-- [ ] Smoke 5 (pygame-ce headless): `SDL_VIDEODRIVER=dummy` + `pygame.init()` + Rect collision + `pygame.sprite` import — no display errors
-- [ ] Smoke 6 (nREPL): start `.venv/bin/basilisp nrepl-server --port 37888` directly (no repo script yet — `scripts/nrepl.sh` is a Phase 1 deliverable); verify `clj-nrepl-eval -p 37888 "(+ 1 2)"` → 3
-- [ ] Record Phase 0 Findings section in this file: versions, autogen verdict, usage-metadata shapes per framework, any plan edits required
+- [x] `python3 -m venv .venv && .venv/bin/pip install ...` — clean resolve, no conflicts
+- [x] Smoke 1 (basilisp↔langgraph): conditional routing via basilisp node fns — PASS
+- [x] Smoke 2 (langgraph↔OpenRouter): one-shot completion inside graph node — PASS
+- [x] Smoke 3 (autogen↔OpenRouter, **the risk gate**): 6-message RoundRobinGroupChat from basilisp — **PASS, one-venv plan stands**
+- [x] Smoke 4 (crewai↔OpenRouter): kickoff — PASS, usage exposed on `result.token_usage`
+- [x] Smoke 5 (pygame-ce headless): dummy driver + Rect + sprite Group — PASS
+- [x] Smoke 6 (nREPL): `clj-nrepl-eval -p 37888 "(+ 1 2)"` → `3` — PASS
+- [x] Phase 0 Findings recorded below
+
+### Phase 0 Findings (2026-07-02)
+
+**Resolver-chosen versions** (no conflicts): basilisp 0.5.1, pygame-ce 2.5.7, langgraph 1.2.7, langchain-openai 1.3.3, autogen-agentchat/-ext 0.7.5, crewai 1.15.1, **openai 2.44.0**, **pydantic 2.12.5**, fastapi 0.139.0. Pin these in `pyproject.toml` (Phase 1).
+
+**AUTOGEN VERDICT: PASS.** RoundRobinGroupChat + OpenAIChatCompletionClient against OpenRouter works with openai 2.44.0, driven from basilisp via `asyncio/run`. Working `model_info` dict: `{vision false, function_calling false, json_output false, family "unknown", structured_output false, multiple_system_messages true}`. Isolated-worker fallback NOT needed.
+
+**Usage/cost metadata shapes** (for `settle!`):
+- langchain (cognition): `resp.usage_metadata` → `{input_tokens, output_tokens}`; **`resp.response_metadata["token_usage"]["cost"]` carries OpenRouter's authoritative USD cost** (e.g. `1.1e-06` for the smoke). → Plan refinement: `settle!` prefers actual OpenRouter cost when present, falls back to price-table estimate. For raw openai-SDK calls in the inference component, request `extra_body={"usage": {"include": true}}` to get the same cost field.
+- autogen (conversation): per-message `msg.models_usage` → `RequestUsage(prompt_tokens, completion_tokens)`; sum over transcript, settle via price table.
+- crewai (chronicle): `result.token_usage` → `{total_tokens, prompt_tokens, completion_tokens, successful_requests}`; settle via price table. Set `CREWAI_DISABLE_TELEMETRY=true` + `OTEL_SDK_DISABLED=true`.
+
+**Assumptions confirmed**: all six seams work as planned; `#py {}` dicts at langgraph boundary; kwargs via `**` interop; basilisp fns as nodes/callables everywhere.
+**Assumptions invalidated**: none.
+**Plan edits required**: only the settle!-prefers-actual-cost refinement above (applied to Phase 1 task wording).
+
+**Phase 0 spend**: < $0.001 total (smoke2 $0.0000011 actual + smoke3 ~250 tokens + smoke4 120 tokens).
 
 ### Verification (Phase 0)
 - Shell: each smoke script exits 0 with expected printed output (captured in findings)
@@ -33,7 +50,7 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 - [ ] Write `pyproject.toml` (project metadata; deps pinned from Phase 0 resolver output; `[tool.pytest.ini_options] pythonpath` listing `tests`, `.`, every brick src dir), empty `basilisp.edn` (`{}`), `.gitignore` (`.venv/`, `__pycache__/`, `*.lpyc`, `.nrepl-port`, `.nrepl-pythonpath`, `replays/*.jsonl` except bundled demo replay)
 - [ ] `scripts/nrepl.sh`, `scripts/test.sh`, `scripts/compile_check.py`, `scripts/check_deps.py` — adapted from stevetrading-basilisp (check_deps rule: `components/*` may not require `bases/*`; `engine` may require all components; pure components (`world`, `persona`, `memory`, `recorder`) may not require LLM components (`inference`, `cognition`, `conversation`, `chronicle`))
 - [ ] `components/inference/src/agentworld/inference/core.lpy`: `(make-client opts)` → openai-SDK client bound to OpenRouter base-url + key from env; `(complete! client {:model :system :messages})` → `{:content :usage {:input-tokens :output-tokens}}`; model registry map `{:default "google/gemini-2.5-flash-lite" :prices {...}}`
-- [ ] `components/inference/src/agentworld/inference/cost.lpy`: single atom holding `{:spent-usd :reserved-usd :calls :by-model}`, **reservation-based fail-before-spend safe under concurrency**: `(reserve! model {:prompt-chars N :max-output-tokens M})` atomically (swap! with validation) adds the cost estimate (chars/4 input tokens + M output tokens at registry prices) to `:reserved-usd`, throwing `ex-info :budget-exceeded` if `spent + reserved + estimate > cap` — BEFORE dispatch; `(settle! reservation-id model usage)` reconciles actual usage into `:spent-usd` and releases the reservation; cap from env `AGENT_WORLD_MAX_SPEND_USD` default 1.00; `(spend-snapshot)` → `{:total-usd :reserved-usd :calls :by-model}`. All `complete!` calls set an explicit `max_tokens` so estimates are bounded; retries disabled/limited (`max_retries` ≤ 1) on all clients
+- [ ] `components/inference/src/agentworld/inference/cost.lpy`: single atom holding `{:spent-usd :reserved-usd :calls :by-model}`, **reservation-based fail-before-spend safe under concurrency**: `(reserve! model {:prompt-chars N :max-output-tokens M})` atomically (swap! with validation) adds the cost estimate (chars/4 input tokens + M output tokens at registry prices) to `:reserved-usd`, throwing `ex-info :budget-exceeded` if `spent + reserved + estimate > cap` — BEFORE dispatch; `(settle! reservation-id model usage)` reconciles actuals into `:spent-usd` and releases the reservation — prefers OpenRouter's authoritative `cost` field when present in usage (Phase 0 finding), else price-table estimate from tokens; raw openai-SDK calls request `extra_body={"usage": {"include": true}}`; cap from env `AGENT_WORLD_MAX_SPEND_USD` default 1.00; `(spend-snapshot)` → `{:total-usd :reserved-usd :calls :by-model}`. All `complete!` calls set an explicit `max_tokens` so estimates are bounded; retries disabled/limited (`max_retries` ≤ 1) on all clients
 - [ ] `tests/inference/test_cost.lpy`: unit tests for cost math + cap trip (no network), **including a concurrent test**: with cap set so only one reservation fits, two threads calling `reserve!` simultaneously → exactly one succeeds, one throws `:budget-exceeded`
 - [ ] `development/README.md`: REPL workflow (start nrepl.sh, clj-nrepl-eval usage, reload pattern)
 

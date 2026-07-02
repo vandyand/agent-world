@@ -44,6 +44,12 @@ Same viewer, no backend required:
 http://127.0.0.1:8700/?replay=/replays/smoke.jsonl
 ```
 
+On pure static hosting (e.g. the Vercel deploy at
+<https://agent-world-three.vercel.app>, built by
+`scripts/build_static.sh` → `dist/`), no `?replay=` param is needed: when
+the first WebSocket attempt fails and `/replays/demo.jsonl` exists, the
+viewer auto-falls-back to playing the bundled canonical replay.
+
 - Replay sources are restricted to same-origin `/replays/<name>.jsonl`
   paths — absolute/external URLs are rejected client-side.
 - Playback drives the exact same renderer, plus a timeline scrubber,

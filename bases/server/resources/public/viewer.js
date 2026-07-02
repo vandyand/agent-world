@@ -562,19 +562,43 @@ function setBadge(text, cls) {
   b.className = "badge" + (cls ? " " + cls : "");
 }
 
+const DEFAULT_REPLAY = "/replays/demo.jsonl";
+
+/* Static-hosting fallback: when the very first WebSocket attempt fails
+ * (no live server behind this origin), auto-load the bundled canonical
+ * replay instead of retrying forever. Only fires if the replay actually
+ * exists; otherwise we keep retrying the socket. */
+async function fallbackToReplay(retryLive) {
+  try {
+    const r = await fetch(DEFAULT_REPLAY, { method: "HEAD" });
+    if (r.ok) {
+      $("live-controls").hidden = true;
+      await startReplay(DEFAULT_REPLAY);
+      return;
+    }
+  } catch (_e) { /* no replay available — stay in live-retry mode */ }
+  setBadge("disconnected — retrying", "err");
+  setTimeout(retryLive, 2000);
+}
+
 function startLive() {
   state.mode = "live";
   $("live-controls").hidden = false;
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   let ws;
+  let everOpened = false;
   const connect = () => {
     ws = new WebSocket(`${proto}//${location.host}/ws/state`);
-    ws.onopen = () => setBadge("live", "live");
+    ws.onopen = () => { everOpened = true; setBadge("live", "live"); };
     ws.onmessage = (m) => {
       try { applyStatePayload(JSON.parse(m.data)); }
       catch (e) { console.error("bad state payload", e); }
     };
-    ws.onclose = () => { setBadge("disconnected — retrying", "err"); setTimeout(connect, 2000); };
+    ws.onclose = () => {
+      if (!everOpened) { fallbackToReplay(connect); return; }
+      setBadge("disconnected — retrying", "err");
+      setTimeout(connect, 2000);
+    };
     ws.onerror = () => ws.close();
   };
   connect();

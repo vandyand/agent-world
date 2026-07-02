@@ -1,0 +1,104 @@
+(ns inference.test-cost
+  "Cost-guard unit tests — pure math + atom mechanics, NO network.
+  Side-effecting calls are bound in let before assertion (basilisp.test/is
+  may double-evaluate forms)."
+  (:import threading)
+  (:require [basilisp.test :refer [deftest is testing]]
+            [agentworld.inference.cost :as cost]))
+
+(def model "google/gemini-2.5-flash-lite")
+
+(deftest cost-math
+  (cost/reset-spend!)
+  (testing "1 Mtok in + 1 Mtok out at $0.10/$0.40 = $0.50"
+    (let [usd (cost/record-usage! model {:input-tokens 1000000
+                                         :output-tokens 1000000})
+          snap (cost/spend-snapshot)]
+      (is (= 0.5 usd))
+      (is (= 0.5 (:total-usd snap)))
+      (is (= 0.0 (:reserved-usd snap)))
+      (is (= 1 (:calls snap)))
+      (is (= 1 (get-in snap [:by-model model :calls])))
+      (is (= 1000000 (get-in snap [:by-model model :input-tokens])))))
+  (testing "estimate: chars/4 input tokens + max output tokens"
+    (let [est (cost/estimate-usd model {:prompt-chars 400000
+                                        :max-output-tokens 1000})]
+      ;; 100k in-tokens * $0.10/M + 1k out-tokens * $0.40/M = 0.0104
+      (is (< 0.0103 est 0.0105)))))
+
+(deftest settle-prefers-actual-cost
+  (cost/reset-spend!)
+  (testing "authoritative OpenRouter :cost wins over the token estimate"
+    (let [rsv (cost/reserve! model {:prompt-chars 4000 :max-output-tokens 100})
+          usd (cost/settle! (:id rsv) model {:input-tokens 900
+                                             :output-tokens 80
+                                             :cost 1.1e-06})
+          snap (cost/spend-snapshot)]
+      (is (= 1.1e-06 usd))
+      (is (= 1.1e-06 (:total-usd snap)))
+      (is (= 0.0 (:reserved-usd snap)))))
+  (testing "without :cost, settle! falls back to the price table"
+    (cost/reset-spend!)
+    (let [rsv (cost/reserve! model {:prompt-chars 4000 :max-output-tokens 100})
+          usd (cost/settle! (:id rsv) model {:input-tokens 1000000
+                                             :output-tokens 1000000})]
+      (is (= 0.5 usd)))))
+
+(deftest cap-trip-and-release
+  (cost/reset-spend!)
+  (with-redefs [cost/cap-usd (fn [] 0.1)]
+    (let [_ (cost/record-usage! model {:cost 0.09})]
+      (testing "reservation overshooting the cap throws :budget-exceeded"
+        (let [thrown (try
+                       (cost/reserve! model {:prompt-chars 400000
+                                             :max-output-tokens 1000})
+                       nil
+                       (catch python/Exception e e))
+              data (ex-data thrown)]
+          (is (some? thrown))
+          (is (= :budget-exceeded (:error data)))
+          ;; failed reserve must leave nothing reserved
+          (is (= 0.0 (:reserved-usd (cost/spend-snapshot))))))
+      (testing "small reservation under remaining budget succeeds, settle! releases it"
+        (let [rsv (cost/reserve! model {:prompt-chars 4000
+                                        :max-output-tokens 100})
+              reserved-after (:reserved-usd (cost/spend-snapshot))
+              _ (cost/settle! (:id rsv) model {:cost 0.0001})
+              snap (cost/spend-snapshot)]
+          (is (some? (:id rsv)))
+          (is (pos? reserved-after))
+          (is (= 0.0 (:reserved-usd snap)))))
+      (testing "release! frees a reservation without spend"
+        (let [rsv (cost/reserve! model {:prompt-chars 4000
+                                        :max-output-tokens 100})
+              spent-before (:total-usd (cost/spend-snapshot))
+              _ (cost/release! (:id rsv))
+              snap (cost/spend-snapshot)]
+          (is (= 0.0 (:reserved-usd snap)))
+          (is (= spent-before (:total-usd snap))))))))
+
+(deftest concurrent-reservations
+  (cost/reset-spend!)
+  ;; Cap sized so ONE 0.0104 reservation fits but two do not.
+  (with-redefs [cost/cap-usd (fn [] 0.02)]
+    (let [results (atom [])
+          worker (fn []
+                   (try
+                     (cost/reserve! model {:prompt-chars 400000
+                                           :max-output-tokens 1000})
+                     (swap! results conj :ok)
+                     (catch python/Exception e
+                       (swap! results conj (:error (ex-data e))))))
+          t1 (threading/Thread ** :target worker)
+          t2 (threading/Thread ** :target worker)]
+      (.start t1)
+      (.start t2)
+      (.join t1)
+      (.join t2)
+      (let [rs @results
+            snap (cost/spend-snapshot)]
+        (is (= 2 (count rs)))
+        ;; exactly one succeeds, one trips the budget
+        (is (= #{:ok :budget-exceeded} (set rs)))
+        ;; exactly one reservation's estimate is held
+        (is (< 0.0103 (:reserved-usd snap) 0.0105))))))

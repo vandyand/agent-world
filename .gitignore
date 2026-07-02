@@ -1,0 +1,13 @@
+# Python
+.venv/
+__pycache__/
+*.lpyc
+
+# Basilisp nREPL state
+.nrepl-port
+.nrepl-pythonpath
+
+# Generated replay files from headless runs.
+# Exception: the bundled demo replay ships with the viewer.
+replays/*.jsonl
+!bases/server/resources/public/replays/demo.jsonl

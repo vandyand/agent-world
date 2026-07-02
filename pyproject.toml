@@ -42,6 +42,7 @@ pythonpath = [
   "components/recorder/src",
   "components/engine/src",
   "bases/headless/src",
+  "bases/server/src",
 ]
 testpaths = [
   "tests",

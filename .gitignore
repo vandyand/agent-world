@@ -8,6 +8,8 @@ __pycache__/
 .nrepl-pythonpath
 
 # Generated replay files from headless runs.
-# Exception: the bundled demo replay ships with the viewer.
+# Exceptions: the bundled viewer replay fixtures ship with the repo.
 replays/*.jsonl
 !bases/server/resources/public/replays/demo.jsonl
+!bases/server/resources/public/replays/smoke.jsonl
+!bases/server/resources/public/replays/malicious.jsonl

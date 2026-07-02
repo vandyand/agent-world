@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent World — Emberwick</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="topbar">
+    <h1>Emberwick</h1>
+    <span id="mode-badge" class="badge">connecting…</span>
+    <div id="live-controls" hidden>
+      <button id="btn-pause" type="button">Pause</button>
+      <label class="speed-label">speed
+        <select id="live-speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+      </label>
+    </div>
+    <div id="spend-hud" title="LLM spend this run">
+      <span id="spend-usd">$0.0000</span>
+      <span id="spend-calls">0 calls</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="canvas-wrap">
+      <canvas id="world" width="768" height="512"></canvas>
+      <div id="replay-bar" hidden>
+        <button id="btn-play" type="button">Pause</button>
+        <label class="speed-label">speed
+          <select id="replay-speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </label>
+        <input id="scrubber" type="range" min="0" max="100" value="0" step="1">
+        <span id="tick-label">tick 0</span>
+      </div>
+    </div>
+
+    <aside id="panel">
+      <section id="inspector">
+        <h2>Agent Inspector</h2>
+        <div id="inspector-body">
+          <p class="hint">Click an agent on the map.</p>
+        </div>
+      </section>
+      <section id="chronicle">
+        <h2>Town Chronicle</h2>
+        <p id="chronicle-text" class="hint">No chronicle yet.</p>
+      </section>
+      <section id="feed">
+        <h2>Events</h2>
+        <ul id="feed-list"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <script type="module" src="viewer.js"></script>
+</body>
+</html>

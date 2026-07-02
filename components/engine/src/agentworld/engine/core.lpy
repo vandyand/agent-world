@@ -103,10 +103,15 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- emit-event!
-  "Emit a sanitized recorder event (no-op without a recorder)."
+  "Emit a sanitized recorder event (no-op without a recorder). :recorder
+  may be a recorder map (JSONL file, see agentworld.recorder.core) or a
+  plain fn — fn recorders receive each event AFTER sanitization, so every
+  sink downstream of the engine sees only whitelisted fields."
   [sim event]
   (when-let [rec (:recorder sim)]
-    (recorder/emit! rec event))
+    (if (map? rec)
+      (recorder/emit! rec event)
+      (rec (recorder/sanitize event))))
   nil)
 
 (defn- spend-brief []

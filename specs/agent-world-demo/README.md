@@ -48,10 +48,10 @@ See [research.md](research.md) for full options analysis.
 
 See [implementation-plan.md](implementation-plan.md) for detailed task breakdown.
 
-- [ ] Phase 0: REPL spike — prove the risky seams
-- [ ] Phase 1: Repo skeleton + polylith gates + inference/cost-guard component
-- [ ] Phase 2: World + persona + memory components (pure sim, no LLM)
-- [ ] Phase 3: Cognition (LangGraph) + conversation (AutoGen) + chronicle (CrewAI)
-- [ ] Phase 4: Engine tick loop + recorder + headless base
-- [ ] Phase 5: Server base + browser viewer (live + replay modes)
-- [ ] Phase 6: Full-run polish, replay artifact, deployment, README
+- [x] Phase 0: REPL spike — prove the risky seams
+- [x] Phase 1: Repo skeleton + polylith gates + inference/cost-guard component
+- [x] Phase 2: World + persona + memory components (pure sim, no LLM)
+- [x] Phase 3: Cognition (LangGraph) + conversation (AutoGen) + chronicle (CrewAI)
+- [x] Phase 4: Engine tick loop + recorder + headless base
+- [x] Phase 5: Server base + browser viewer (live + replay modes)
+- [x] Phase 6: Full-run polish, replay artifact, deployment, README

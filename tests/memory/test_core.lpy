@@ -1,0 +1,48 @@
+(ns memory.test-core
+  "Memory ring-buffer tests. Side-effecting calls bound in let before
+  assertion (basilisp.test/is may double-evaluate forms)."
+  (:require [basilisp.test :refer [deftest is testing]]
+            [agentworld.memory.core :as memory]))
+
+(deftest remember-and-recent
+  (let [store (memory/make-store)]
+    (testing "empty store → no memories"
+      (is (= [] (memory/recent store :mara 5))))
+    (testing "events come back oldest-first, capped by n"
+      (let [_ (memory/remember! store :mara "saw Theo at the square")
+            _ (memory/remember! store :mara "bought flour")
+            _ (memory/remember! store :mara "smelled rain coming")
+            last-two (memory/recent store :mara 2)
+            all (memory/recent store :mara 10)]
+        (is (= ["bought flour" "smelled rain coming"] last-two))
+        (is (= 3 (count all)))
+        (is (= "saw Theo at the square" (first all)))))
+    (testing "agents are isolated"
+      (is (= [] (memory/recent store :theo 5))))))
+
+(deftest ring-buffer-caps-at-k
+  (let [store (memory/make-store)
+        _ (dotimes [i 30]
+            (memory/remember! store :otto (str "event-" i)))
+        all (memory/recent store :otto 100)]
+    (testing "only the newest 20 survive"
+      (is (= memory/buffer-size (count all)))
+      (is (= "event-10" (first all)))
+      (is (= "event-29" (peek all))))))
+
+(deftest conversation-summaries
+  (let [store (memory/make-store)]
+    (testing "no conversation yet"
+      (is (nil? (memory/last-conversation store :cass))))
+    (let [_ (memory/conversation-summary! store :cass "Talked herbs with Mara.")
+          summary (memory/last-conversation store :cass)
+          events (memory/recent store :cass 5)]
+      (testing "summary is retrievable"
+        (is (= "Talked herbs with Mara." summary)))
+      (testing "summary also lands in the ring buffer"
+        (is (= 1 (count events)))
+        (is (= "[conversation] Talked herbs with Mara." (first events)))))
+    (let [_ (memory/conversation-summary! store :cass "Argued weather with Isolde.")
+          summary (memory/last-conversation store :cass)]
+      (testing "newest summary wins"
+        (is (= "Argued weather with Isolde." summary))))))

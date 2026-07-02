@@ -1,0 +1,118 @@
+(ns agentworld.persona.core
+  "The six townsfolk of Emberwick as pure data, plus prompt builders.
+
+  A persona is a plain map:
+  {:id kw :name str :occupation str :personality str :speech-style str
+   :goal str :home kw}
+
+  :home is a place keyword from the world map (:square :tavern :market
+  :dock :garden :smithy). Pure — no LLM deps; cognition/conversation
+  consume these prompts."
+  (:require [basilisp.string :as str]))
+
+(def personas
+  {:mara
+   {:id :mara
+    :name "Mara"
+    :occupation "baker"
+    :personality "warm, gossipy, generous; knows everyone's business and everyone's favorite loaf"
+    :speech-style "chatty and homey, sprinkles in baking metaphors"
+    :goal "convince the town council to fund a communal oven on the square"
+    :home :square}
+
+   :theo
+   {:id :theo
+    :name "Theo"
+    :occupation "blacksmith"
+    :personality "gruff but kind-hearted, a perfectionist who hates shoddy work"
+    :speech-style "short, blunt sentences; grumbles, but means well"
+    :goal "finish the ornate gate commissioned for the harvest festival"
+    :home :smithy}
+
+   :isolde
+   {:id :isolde
+    :name "Isolde"
+    :occupation "fisherwoman"
+    :personality "dry-witted, superstitious about the weather, fiercely independent"
+    :speech-style "laconic and salty, reads omens into everything"
+    :goal "land the giant pike that's been snapping her lines all season"
+    :home :dock}
+
+   :bram
+   {:id :bram
+    :name "Bram"
+    :occupation "innkeeper"
+    :personality "jovial host, terrible at keeping secrets, sentimental about the old days"
+    :speech-style "booming and theatrical, always mid-anecdote"
+    :goal "throw the best festival feast Emberwick has ever seen"
+    :home :tavern}
+
+   :cass
+   {:id :cass
+    :name "Cass"
+    :occupation "herbalist"
+    :personality "observant, soft-spoken, endlessly curious about people and plants alike"
+    :speech-style "gentle and precise, names herbs the way others name friends"
+    :goal "breed a frost-hardy strain of moonmint before winter"
+    :home :garden}
+
+   :otto
+   {:id :otto
+    :name "Otto"
+    :occupation "dockmaster"
+    :personality "officious about schedules, secretly a hopeless romantic poet"
+    :speech-style "clipped and procedural, until poetry leaks out"
+    :goal "get his poems read aloud at the festival without anyone knowing they're his"
+    :home :dock}})
+
+(def all-personas
+  "The six townsfolk, stable order."
+  (mapv personas [:mara :theo :isolde :bram :cass :otto]))
+
+(defn system-prompt
+  "System prompt establishing a persona's character for any LLM call."
+  [{persona-name :name
+    :keys [occupation personality speech-style goal home]}]
+  (str "You are " persona-name ", the " occupation
+       " in the small town of Emberwick. "
+       "Personality: " personality ". "
+       "Speech style: " speech-style ". "
+       "Your current goal: " goal ". "
+       "Your home spot is the " (name home) ". "
+       "Always stay in character as " persona-name
+       ", speak in first person, and keep replies to 1-2 short sentences."))
+
+(defn- perception-lines
+  "Render a perception map as prompt lines. perception keys (all optional):
+  {:place kw|str :nearby-agents [str] :places [kw|str]
+   :memories [str] :last-conversation str}"
+  [{:keys [place nearby-agents places memories last-conversation]}]
+  (->> [(when place
+          (str "You are currently at the "
+               (if (keyword? place) (name place) (str place)) "."))
+        (if (seq nearby-agents)
+          (str "Nearby people: " (str/join ", " nearby-agents) ".")
+          "Nobody is nearby.")
+        (when (seq places)
+          (str "Places in town: "
+               (str/join ", " (map #(if (keyword? %) (name %) (str %)) places))
+               "."))
+        (when (seq memories)
+          (str "Recent memories:\n"
+               (str/join "\n" (map #(str "- " %) memories))))
+        (when last-conversation
+          (str "Your last conversation, summarized: " last-conversation))]
+       (remove nil?)))
+
+(defn decision-prompt
+  "User prompt asking a persona to pick its next intent from a perception
+  snapshot. The model must answer with ONLY an intent JSON object —
+  cognition parses it defensively (fallback: wander)."
+  [persona perception]
+  (str (str/join "\n" (perception-lines perception))
+       "\n\nDecide what " (:name persona) " does next."
+       " Respond with ONLY a JSON object, no other text, shaped like:"
+       " {\"action\": \"goto\"|\"wander\"|\"stay\"|\"seek\","
+       " \"place\": \"<place name, required for goto>\","
+       " \"target\": \"<person name, required for seek>\","
+       " \"reason\": \"<one short sentence in character>\"}"))

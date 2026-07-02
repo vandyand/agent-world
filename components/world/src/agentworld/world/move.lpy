@@ -1,0 +1,150 @@
+(ns agentworld.world.move
+  "Movement: BFS pathfinding + one-tile-per-tick stepping.
+
+  (step-entity world ent) advances an entity one tile along its :path
+  toward :target, recomputing the path when the next step is blocked or
+  missing; entities with no :target wander. (step-world world) steps every
+  agent. Randomness comes from an explicit python random.Random passed in
+  (tests) or the module default. Pure of LLM deps."
+  (:import random)
+  (:require [agentworld.world.grid :as grid]))
+
+(def default-rng (random/Random))
+
+(def ^:private deltas
+  [[0 -1] [0 1] [-1 0] [1 0]])
+
+(defn neighbors
+  "Walkable 4-neighbors of pos."
+  [world [x y]]
+  (filter #(grid/walkable? world %)
+          (map (fn [[dx dy]] [(+ x dx) (+ y dy)]) deltas)))
+
+(defn facing-of
+  "Facing keyword for a one-tile move from -> to."
+  [[fx fy] [tx ty]]
+  (cond
+    (< tx fx) :west
+    (> tx fx) :east
+    (< ty fy) :north
+    (> ty fy) :south
+    :else :south))
+
+(defn find-path
+  "BFS shortest path on the grid. Returns a vector of positions to step
+  through (excluding from, including to), [] when from = to, nil when to
+  is unreachable or not walkable."
+  [world from to]
+  (cond
+    (= from to) []
+    (not (grid/walkable? world to)) nil
+    :else
+    (loop [frontier [from]
+           came-from {from nil}]
+      (if (empty? frontier)
+        nil
+        (let [expanded (reduce
+                        (fn [cf pos]
+                          (reduce (fn [cf n]
+                                    (if (contains? cf n) cf (assoc cf n pos)))
+                                  cf
+                                  (neighbors world pos)))
+                        came-from
+                        frontier)]
+          (if (contains? expanded to)
+            ;; walk parents back to `from` (the only node with nil parent),
+            ;; which is excluded from the returned path
+            (loop [pos to path (list)]
+              (if-let [prev (get expanded pos)]
+                (recur prev (cons pos path))
+                (vec path)))
+            (let [next-frontier (vec (remove #(contains? came-from %)
+                                             (keys expanded)))]
+              (recur next-frontier expanded))))))))
+
+(defn set-target
+  "Point an entity at a target tile: assigns :target and a fresh :path.
+  Unreachable/blocked targets leave the entity idle with no target."
+  [world ent pos]
+  (if-let [path (find-path world (:pos ent) pos)]
+    (assoc ent :target pos :path path :state :moving)
+    (assoc ent :target nil :path [] :state :idle)))
+
+(defn send-to
+  "set-target an agent (by id) at the center of a named place. Returns the
+  updated world."
+  [world id place-kw]
+  (let [ent (get-in world [:agents id])
+        dest (grid/place-center world place-kw)]
+    (when-not ent
+      (throw (ex-info (str "no agent " id) {:error :no-agent :id id})))
+    (when-not dest
+      (throw (ex-info (str "no walkable tile in place " place-kw)
+                      {:error :bad-place :place place-kw})))
+    (assoc-in world [:agents id] (set-target world ent dest))))
+
+(defn- wander
+  "No target: sometimes drift one tile to a random walkable neighbor."
+  [world ent rng]
+  (let [opts (vec (neighbors world (:pos ent)))]
+    (if (and (seq opts) (< (.random rng) 0.5))
+      (let [nxt (nth opts (.randrange rng (count opts)))]
+        (assoc ent
+               :facing (facing-of (:pos ent) nxt)
+               :pos nxt
+               :state :wandering))
+      (assoc ent :state :idle))))
+
+(defn- advance
+  "Move one tile along path (already validated non-empty + walkable)."
+  [ent path]
+  (let [nxt (first path)
+        arrived? (= nxt (:target ent))]
+    (cond-> (assoc ent
+                   :facing (facing-of (:pos ent) nxt)
+                   :pos nxt
+                   :path (vec (rest path))
+                   :state :moving)
+      arrived? (assoc :target nil :path [] :state :idle))))
+
+(defn step-entity
+  "Advance an entity one tick:
+   - at :target → clear it, go idle
+   - has :target → step one tile along :path, recomputing the path when
+     the next step is missing, non-adjacent, or no longer walkable; if the
+     target became unreachable, drop it
+   - no :target → wander."
+  ([world ent] (step-entity world ent default-rng))
+  ([world ent rng]
+   (if-let [target (:target ent)]
+     (cond
+       (= (:pos ent) target)
+       (assoc ent :target nil :path [] :state :idle)
+
+       ;; target tile no longer walkable (world changed) → drop it
+       (not (grid/walkable? world target))
+       (assoc ent :target nil :path [] :state :idle)
+
+       :else
+       (let [path (:path ent)
+             valid? (and (seq path)
+                         (grid/walkable? world (first path))
+                         (some #(= (first path) %) (neighbors world (:pos ent)))
+                         (= target (peek path)))
+             path (if valid? path (find-path world (:pos ent) target))]
+         (if (seq path)
+           (advance ent path)
+           ;; unreachable (or already there after recompute) → give up
+           (assoc ent :target nil :path [] :state :idle))))
+     (wander world ent rng))))
+
+(defn step-world
+  "Step every agent one tick. Returns the updated world."
+  ([world] (step-world world default-rng))
+  ([world rng]
+   (update world :agents
+           (fn [agents]
+             (reduce-kv (fn [m id ent]
+                          (assoc m id (step-entity world ent rng)))
+                        {}
+                        agents)))))

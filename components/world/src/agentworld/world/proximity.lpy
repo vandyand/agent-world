@@ -1,0 +1,46 @@
+(ns agentworld.world.proximity
+  "Proximity queries: which agent pairs are close enough to talk?
+
+  Pure — cooldown state is a plain map passed in by the caller (the
+  engine owns cooldown bookkeeping), so this namespace stays side-effect
+  free and trivially testable.")
+
+(defn chebyshev
+  "Chebyshev (chessboard) distance between two tiles."
+  [[ax ay] [bx by]]
+  (max (abs (- ax bx)) (abs (- ay by))))
+
+(defn pair-key
+  "Order-independent key for an agent pair: sorted [id id] vector.
+  Use these as keys in the cooldown map."
+  [id-a id-b]
+  (vec (sort [id-a id-b])))
+
+(defn- agent-seq
+  "Accept either a world map ({:agents {id ent}}) or a seq/map of agents."
+  [agents-or-world]
+  (cond
+    (and (map? agents-or-world) (contains? agents-or-world :agents))
+    (vals (:agents agents-or-world))
+
+    (map? agents-or-world)
+    (vals agents-or-world)
+
+    :else
+    (seq agents-or-world)))
+
+(defn pairs-within
+  "All distinct agent pairs within Chebyshev distance r of each other,
+  excluding pairs whose (pair-key a b) appears in the cooldowns map.
+  Accepts a world or a collection of entities. Returns a seq of [ent-a
+  ent-b] vectors (each pair once, stable id order)."
+  ([agents-or-world r] (pairs-within agents-or-world r {}))
+  ([agents-or-world r cooldowns]
+   (let [agents (vec (sort-by :id (agent-seq agents-or-world)))]
+     (for [i (range (count agents))
+           j (range (inc i) (count agents))
+           :let [a (nth agents i)
+                 b (nth agents j)]
+           :when (and (<= (chebyshev (:pos a) (:pos b)) r)
+                      (not (contains? cooldowns (pair-key (:id a) (:id b)))))]
+       [a b]))))

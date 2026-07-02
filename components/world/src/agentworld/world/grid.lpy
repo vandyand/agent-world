@@ -1,0 +1,115 @@
+(ns agentworld.world.grid
+  "Tile-map world state, loaded from components/world/resources/map.edn.
+
+  The map EDN is hand-authored row-strings: one 48-char string per row,
+  '#' = blocked, '.' = walkable, plus named places with tile rects:
+  {:width 48 :height 32 :rows [\"##..\" ...]
+   :places {:square {:rect [x y w h]} ...}}
+
+  A world is one flat map:
+  {:width int :height int
+   :blocked #{[x y] ...}          ; static blocked tiles
+   :places {kw {:rect [x y w h]}} ; named places
+   :agents {id entity}}           ; populated by agentworld.world.entity
+
+  Positions are [x y] vectors, origin top-left. Pure — no LLM deps."
+  (:import os sys))
+
+(def ^:private this-dir
+  "Directory holding this .lpy file (via the module's __file__ — works
+  under both the basilisp import hook and compile_check's importlib)."
+  (os.path/dirname (os.path/abspath
+                    (.-__file__ (get (.-modules sys) "agentworld.world.grid")))))
+
+(def default-map-path
+  "components/world/resources/map.edn, resolved relative to this file."
+  (os.path/abspath
+   (os.path/join this-dir ".." ".." ".." "resources" "map.edn")))
+
+(defn parse-map
+  "Turn the raw map EDN {:width :height :rows :places} into a world map.
+  Validates row count/lengths so hand-editing errors fail loudly."
+  [{:keys [width height rows places] :as raw}]
+  (when-not (= height (count rows))
+    (throw (ex-info (str "map has " (count rows) " rows, expected " height)
+                    {:error :bad-map :raw raw})))
+  (doseq [[y row] (map-indexed vector rows)]
+    (when-not (= width (count row))
+      (throw (ex-info (str "map row " y " has " (count row)
+                           " tiles, expected " width)
+                      {:error :bad-map :row y}))))
+  {:width width
+   :height height
+   :blocked (set (for [[y row] (map-indexed vector rows)
+                       [x ch] (map-indexed vector row)
+                       :when (= ch \#)]
+                   [x y]))
+   :places places
+   :agents {}})
+
+(defn load-map
+  "Read + parse a map EDN file. No-arg form loads the bundled town map."
+  ([] (load-map default-map-path))
+  ([path] (parse-map (read-string (slurp path)))))
+
+(defn make-world
+  "Build a fresh world (bundled map, no agents)."
+  ([] (load-map))
+  ([path] (load-map path)))
+
+(defn in-bounds?
+  [{:keys [width height]} [x y]]
+  (and (<= 0 x) (< x width) (<= 0 y) (< y height)))
+
+(defn walkable?
+  "Is pos inside the map and not a blocked tile? (Agents do not block
+  tiles — only static map geometry does.)"
+  [world pos]
+  (and (in-bounds? world pos)
+       (not (contains? (:blocked world) pos))))
+
+(defn place-rect
+  "The [x y w h] rect of a named place, or nil."
+  [world place-kw]
+  (get-in world [:places place-kw :rect]))
+
+(defn place-tiles
+  "All tiles inside a place's rect (walkable or not)."
+  [world place-kw]
+  (when-let [[x y w h] (place-rect world place-kw)]
+    (for [py (range y (+ y h))
+          px (range x (+ x w))]
+      [px py])))
+
+(defn place-walkable-tiles
+  "Walkable tiles inside a place's rect, in row-major order."
+  [world place-kw]
+  (filter #(walkable? world %) (place-tiles world place-kw)))
+
+(defn place-center
+  "A walkable tile nearest the center of the place rect (good default
+  target for \"go to the tavern\")."
+  [world place-kw]
+  (when-let [[x y w h] (place-rect world place-kw)]
+    (let [cx (+ x (quot w 2))
+          cy (+ y (quot h 2))
+          tiles (place-walkable-tiles world place-kw)]
+      (when (seq tiles)
+        (apply min-key
+               (fn [[px py]]
+                 (+ (abs (- px cx)) (abs (- py cy))))
+               tiles)))))
+
+(defn in-place?
+  "Is pos inside the rect of place-kw?"
+  [world place-kw pos]
+  (when-let [[x y w h] (place-rect world place-kw)]
+    (let [[px py] pos]
+      (and (<= x px) (< px (+ x w))
+           (<= y py) (< py (+ y h))))))
+
+(defn place-at
+  "The place keyword whose rect contains pos, or nil."
+  [world pos]
+  (some (fn [place-kw] (when (in-place? world place-kw pos) place-kw))
+        (keys (:places world))))

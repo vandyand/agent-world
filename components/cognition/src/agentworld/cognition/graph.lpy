@@ -1,0 +1,180 @@
+(ns agentworld.cognition.graph
+  "Per-agent decision cognition as a LangGraph StateGraph.
+
+  Topology (compiled once, invoked per agent decision):
+
+    START -> perceive (pure: persona + perception -> prompts)
+          -> decide   (LLM: raw text -> intent, parsed defensively)
+          -> [conditional route on intent action]
+               goto/seek     -> set-target -> END
+               wander/stay/* -> idle       -> END
+
+  State crosses the langgraph boundary as #py {} dicts; persona/perception/
+  intent values inside are plain Basilisp maps (opaque Python objects to
+  langgraph's LastValue channels).
+
+  The LLM is a swappable callable {:system str :prompt str} -> raw-text so
+  tests stub it (no network): (make-graph {:llm f}). The default LLM uses
+  agentworld.inference.core/complete! with a bounded max-tokens, wrapped in
+  the cost guard's reserve!/settle! (fail-before-spend)."
+  (:import json typing
+           [langgraph.graph :as lgg])
+  (:require [basilisp.string :as str]
+            [agentworld.inference.core :as inf]
+            [agentworld.inference.cost :as cost]
+            [agentworld.persona.core :as persona]))
+
+;; ---------------------------------------------------------------------------
+;; Intent parsing (defensive — models return fences, prose, or garbage)
+;; ---------------------------------------------------------------------------
+
+(def valid-actions
+  "Allowed intent actions."
+  #{"goto" "wander" "stay" "seek"})
+
+(def fallback-intent
+  "Intent used whenever the model reply cannot be parsed into a valid one."
+  {:action "wander" :reason "unparseable reply — wandering"})
+
+(defn- strip-code-fences
+  "Strip a leading ```/```json fence and trailing ``` from a model reply."
+  [s]
+  (let [s (str/trim (str s))]
+    (if (str/starts-with? s "```")
+      (-> s
+          (str/replace #"^```[a-zA-Z]*\s*" "")
+          (str/replace #"\s*```$" "")
+          str/trim)
+      s)))
+
+(defn parse-intent
+  "Parse a raw model reply into an intent map
+  {:action \"goto\"|\"wander\"|\"stay\"|\"seek\" :place? :target? :reason?}.
+
+  Defensive: json.loads inside try, code fences stripped first, and any
+  failure (bad JSON, non-object JSON, unknown action) falls back to
+  fallback-intent (wander)."
+  [raw]
+  (try
+    (let [parsed (json/loads (strip-code-fences raw))
+          action (.get parsed "action")]
+      (if (contains? valid-actions action)
+        (cond-> {:action action}
+          (.get parsed "place") (assoc :place (str (.get parsed "place")))
+          (.get parsed "target") (assoc :target (str (.get parsed "target")))
+          (.get parsed "reason") (assoc :reason (str (.get parsed "reason"))))
+        fallback-intent))
+    (catch python/Exception _
+      fallback-intent)))
+
+;; ---------------------------------------------------------------------------
+;; Graph
+;; ---------------------------------------------------------------------------
+
+(def DecisionState
+  (typing/TypedDict "DecisionState"
+                    #py {"persona" python/object
+                         "perception" python/object
+                         "system" python/str
+                         "prompt" python/str
+                         "raw" python/str
+                         "intent" python/object
+                         "route" python/str}))
+
+(defn- perceive-node
+  "Pure: render persona + perception into system/decision prompts."
+  [state]
+  (let [p (get state "persona")]
+    #py {"system" (persona/system-prompt p)
+         "prompt" (persona/decision-prompt p (get state "perception"))}))
+
+(defn- make-decide-node
+  "LLM node: call llm with the prompts, parse the reply defensively."
+  [llm]
+  (fn decide-node [state]
+    (let [raw (str (llm {:system (get state "system")
+                         :prompt (get state "prompt")}))]
+      #py {"raw" raw
+           "intent" (parse-intent raw)})))
+
+(defn- route-intent
+  "Conditional edge: goto/seek need a movement target; everything else idles."
+  [state]
+  (if (contains? #{"goto" "seek"} (:action (get state "intent")))
+    "set-target"
+    "idle"))
+
+(defn- set-target-node [state]
+  #py {"route" "set-target"})
+
+(defn- idle-node [state]
+  #py {"route" "idle"})
+
+(defn make-graph
+  "Compile the decision StateGraph with a swappable llm callable
+  ({:system str :prompt str} -> raw reply text)."
+  [{:keys [llm]}]
+  (let [b (lgg/StateGraph DecisionState)]
+    (.add-node b "perceive" perceive-node)
+    (.add-node b "decide" (make-decide-node llm))
+    (.add-node b "set-target" set-target-node)
+    (.add-node b "idle" idle-node)
+    (.add-edge b lgg/START "perceive")
+    (.add-edge b "perceive" "decide")
+    (.add-conditional-edges b "decide" route-intent
+                            #py {"set-target" "set-target" "idle" "idle"})
+    (.add-edge b "set-target" lgg/END)
+    (.add-edge b "idle" lgg/END)
+    (.compile b)))
+
+(defn run-decision
+  "Invoke a compiled decision graph for persona + perception. Returns the
+  intent map with :route (\"set-target\"|\"idle\") assoc'd on."
+  [graph persona perception]
+  (let [result (.invoke graph #py {"persona" persona
+                                   "perception" perception
+                                   "system" ""
+                                   "prompt" ""
+                                   "raw" ""
+                                   "intent" nil
+                                   "route" ""})]
+    (assoc (get result "intent") :route (get result "route"))))
+
+;; ---------------------------------------------------------------------------
+;; Default (live) LLM — cost-guarded inference/complete!
+;; ---------------------------------------------------------------------------
+
+(def decide-max-tokens
+  "Output bound for a single decision call (intent JSON is tiny)."
+  120)
+
+(def ^:private default-client (delay (inf/make-client)))
+
+(defn default-llm
+  "Live decision LLM: reserve! worst case -> complete! -> settle! actuals.
+  release! on failure so aborted calls never pin the budget."
+  [{:keys [system prompt]}]
+  (let [model (:default inf/model-registry)
+        rsv (cost/reserve! model {:prompt-chars (+ (count (str system))
+                                                   (count (str prompt)))
+                                  :max-output-tokens decide-max-tokens})]
+    (try
+      (let [resp (inf/complete! @default-client
+                                {:model model
+                                 :system system
+                                 :messages [{:role "user" :content prompt}]
+                                 :max-tokens decide-max-tokens})]
+        (cost/settle! (:id rsv) model (:usage resp))
+        (:content resp))
+      (catch python/Exception e
+        (cost/release! (:id rsv))
+        (throw e)))))
+
+(def ^:private default-graph (delay (make-graph {:llm default-llm})))
+
+(defn decide!
+  "Run one live decision for persona given a perception snapshot
+  ({:place :nearby-agents :places :memories :last-conversation}, all
+  optional). Returns an intent map {:action :place? :target? :reason :route}."
+  [persona perception]
+  (run-decision @default-graph persona perception))

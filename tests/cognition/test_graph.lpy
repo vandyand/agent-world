@@ -1,0 +1,101 @@
+(ns cognition.test-graph
+  "Cognition graph tests — stubbed LLM callable, NO network.
+  Side-effecting/interop calls are bound in let before assertion
+  (basilisp.test/is may double-evaluate forms)."
+  (:require [basilisp.string :as str]
+            [basilisp.test :refer [deftest is testing]]
+            [agentworld.cognition.graph :as graph]
+            [agentworld.persona.core :as persona]))
+
+(def mara (first persona/all-personas))
+
+(def perception
+  {:place :square :nearby-agents [] :memories []})
+
+(defn stub-llm
+  "LLM callable returning a canned reply, recording the request it saw."
+  [reply seen]
+  (fn [req]
+    (reset! seen req)
+    reply))
+
+(deftest parse-intent-valid-json
+  (let [intent (graph/parse-intent
+                "{\"action\": \"goto\", \"place\": \"tavern\", \"reason\": \"thirsty\"}")]
+    (is (= "goto" (:action intent)))
+    (is (= "tavern" (:place intent)))
+    (is (= "thirsty" (:reason intent)))))
+
+(deftest parse-intent-code-fenced-json
+  (testing "```json fence"
+    (let [intent (graph/parse-intent
+                  "```json\n{\"action\": \"seek\", \"target\": \"Theo\"}\n```")]
+      (is (= "seek" (:action intent)))
+      (is (= "Theo" (:target intent)))))
+  (testing "bare ``` fence"
+    (let [intent (graph/parse-intent "```\n{\"action\": \"stay\"}\n```")]
+      (is (= "stay" (:action intent))))))
+
+(deftest parse-intent-garbage-falls-back-to-wander
+  (testing "prose reply"
+    (let [intent (graph/parse-intent "I think I shall stroll about the square!")]
+      (is (= "wander" (:action intent)))))
+  (testing "empty / nil"
+    (let [i1 (graph/parse-intent "")
+          i2 (graph/parse-intent nil)]
+      (is (= "wander" (:action i1)))
+      (is (= "wander" (:action i2)))))
+  (testing "non-object JSON"
+    (let [intent (graph/parse-intent "[1, 2, 3]")]
+      (is (= "wander" (:action intent))))))
+
+(deftest parse-intent-unknown-action-falls-back-to-wander
+  (let [intent (graph/parse-intent "{\"action\": \"fly\", \"place\": \"moon\"}")]
+    (is (= "wander" (:action intent)))))
+
+(deftest graph-topology
+  (let [seen (atom nil)
+        g (graph/make-graph {:llm (stub-llm "{\"action\": \"stay\"}" seen)})
+        node-names (set (map str (python/list (.keys (.-nodes g)))))]
+    (is (contains? node-names "perceive"))
+    (is (contains? node-names "decide"))
+    (is (contains? node-names "set-target"))
+    (is (contains? node-names "idle"))))
+
+(deftest goto-routes-to-set-target
+  (let [seen (atom nil)
+        g (graph/make-graph
+           {:llm (stub-llm "{\"action\": \"goto\", \"place\": \"tavern\", \"reason\": \"bread run\"}"
+                           seen)})
+        intent (graph/run-decision g mara perception)]
+    (is (= "goto" (:action intent)))
+    (is (= "tavern" (:place intent)))
+    (is (= "set-target" (:route intent)))
+    (testing "perceive fed the persona/perception prompts to the llm"
+      (let [req @seen]
+        (is (string? (:system req)))
+        (is (str/includes? (:system req) "Mara"))
+        (is (string? (:prompt req)))))))
+
+(deftest seek-routes-to-set-target
+  (let [seen (atom nil)
+        g (graph/make-graph
+           {:llm (stub-llm "{\"action\": \"seek\", \"target\": \"Theo\"}" seen)})
+        intent (graph/run-decision g mara perception)]
+    (is (= "seek" (:action intent)))
+    (is (= "Theo" (:target intent)))
+    (is (= "set-target" (:route intent)))))
+
+(deftest stay-routes-to-idle
+  (let [seen (atom nil)
+        g (graph/make-graph {:llm (stub-llm "{\"action\": \"stay\"}" seen)})
+        intent (graph/run-decision g mara perception)]
+    (is (= "stay" (:action intent)))
+    (is (= "idle" (:route intent)))))
+
+(deftest garbage-reply-wanders-and-idles
+  (let [seen (atom nil)
+        g (graph/make-graph {:llm (stub-llm "hmm, lovely weather today" seen)})
+        intent (graph/run-decision g mara perception)]
+    (is (= "wander" (:action intent)))
+    (is (= "idle" (:route intent)))))

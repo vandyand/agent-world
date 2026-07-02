@@ -1,6 +1,6 @@
 ---
 title: "Agent World Demo"
-status: planned
+status: in-progress
 date: 2026-07-02
 priority: 10
 ---

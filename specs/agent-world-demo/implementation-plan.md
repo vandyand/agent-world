@@ -8,8 +8,8 @@ Top-level namespace: `agentworld`. Python: 3.12 venv at `.venv`. All work in `/h
 
 ## Prerequisites
 
-- [ ] `OPENROUTER_API_KEY` present in environment (check `~/ascolais/.env` if not in shell env; export for the nREPL/server processes)
-- [ ] Python 3.12 with venv module available
+- [x] `OPENROUTER_API_KEY` present in environment (check `~/ascolais/.env` if not in shell env; export for the nREPL/server processes)
+- [x] Python 3.12 with venv module available
 
 ## Phase 0: REPL Spike — prove the risky seams
 
@@ -114,13 +114,13 @@ Create `.venv`, install the full dependency stack, and empirically verify every 
 - Playwright: screenshot shows rendered tile map with 6 labeled agents; a second screenshot ≥30s later shows agents at different positions; during a conversation a speech bubble is visible; replay mode (`?replay=/replays/smoke.jsonl`) renders and scrubs
 - nREPL: `(server/state-snapshot)` shape `{:tick :agents :chronicle :spend}` correct
 
-## Phase 6: Full run, replay artifact, deployment, docs
+## Phase 6: Full run, replay artifact, deployment, docs (COMPLETE)
 
-- [ ] Produce the canonical demo replay: 10-sim-minute headless run, seed chosen for lively output (≥3 conversations, ≥2 chronicle entries), spend < $0.25; bundle as `bases/server/resources/public/replays/demo.jsonl` (< 5 MB; if larger, switch recorder to keyframes+events and regenerate)
-- [ ] Static export: `scripts/build_static.sh` → `dist/` containing viewer + demo replay wired as default (`index.html` auto-loads replay when no WS available); deploy `dist/` to Vercel as project `agent-world` (match sibling-demo Vercel setup: `vercel --prod` from dist or vercel.json static config); verify live URL
-- [ ] Root `README.md`: hero screenshot/GIF, architecture diagram (ASCII ok), the LangGraph/AutoGen/CrewAI division-of-labor story, basilisp polylith explanation, quick start (live + replay), cost model, Kenney attribution if used, note on Microsoft Agent Framework convergence awareness
-- [ ] Screenshot(s) for the portfolio site captured via Playwright and saved to `docs/screenshots/`
-- [ ] Final gates: `scripts/test.sh` (full), compile_check, check_deps, and `scripts/check_public_hygiene.py dist/ bases/server/resources/public/` all green
+- [x] Produce the canonical demo replay: 10-sim-minute headless run, seed chosen for lively output (≥3 conversations, ≥2 chronicle entries), spend < $0.25; bundle as `bases/server/resources/public/replays/demo.jsonl` (< 5 MB; if larger, switch recorder to keyframes+events and regenerate)
+- [x] Static export: `scripts/build_static.sh` → `dist/` containing viewer + demo replay wired as default (`index.html` auto-loads replay when no WS available); deploy `dist/` to Vercel as project `agent-world` (match sibling-demo Vercel setup: `vercel --prod` from dist or vercel.json static config); verify live URL
+- [x] Root `README.md`: hero screenshot/GIF, architecture diagram (ASCII ok), the LangGraph/AutoGen/CrewAI division-of-labor story, basilisp polylith explanation, quick start (live + replay), cost model, Kenney attribution if used, note on Microsoft Agent Framework convergence awareness
+- [x] Screenshot(s) for the portfolio site captured via Playwright and saved to `docs/screenshots/`
+- [x] Final gates: `scripts/test.sh` (full), compile_check, check_deps, and `scripts/check_public_hygiene.py dist/ bases/server/resources/public/` all green
 
 ### Verification (Phase 6)
 - Shell: `test -s dist/replays/demo.jsonl && du -h dist/replays/demo.jsonl` under budget; full test suite green
